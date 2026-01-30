@@ -1,0 +1,18 @@
+----------- dev saas apis------------
+
+1. /auth/register [name,email,password , role (SUPERADMIN)]
+2. /auth/login [email,password]
+3. /auth/logout
+4. /ca/create [name,email,password,status (active/inactive) ,role (CAADMIN)]
+5. /ca/view
+6. /ca/edit/:id
+7. /ca/update-status/:id
+8. /ca/delete/:id
+
+------------ca apis------------
+
+1. /ca/login
+2. /customer/create [caId,name,mobileNumber,panNumber,type,customFields]
+3. /customer/view
+4. /customer/edit/:id
+5. /customer/delete/:id

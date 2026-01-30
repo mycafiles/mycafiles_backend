@@ -1,0 +1,27 @@
+[17:57:15] ERROR  TypeError: next is not a function
+    at model.<anonymous> (D:\MRDCO\backend\models\User.js:29:5)
+    at async Kareem.execPre (D:\MRDCO\backend\node_modules\kareem\index.js:65:24)
+    at async model.$__save (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:369:5)
+    at async model.save (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:609:5)
+    at async D:\MRDCO\backend\node_modules\mongoose\lib\model.js:2714:9
+    at async Promise.all (index 0)
+    at async model.create (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:2699:11)
+    at async D:\MRDCO\backend\controller\caController.js:8:16
+[17:57:20] ERROR  TypeError: next is not a function
+    at model.<anonymous> (D:\MRDCO\backend\models\User.js:29:5)
+    at async Kareem.execPre (D:\MRDCO\backend\node_modules\kareem\index.js:65:24)
+    at async model.$__save (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:369:5)
+    at async model.save (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:609:5)
+    at async D:\MRDCO\backend\node_modules\mongoose\lib\model.js:2714:9
+    at async Promise.all (index 0)
+    at async model.create (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:2699:11)
+    at async D:\MRDCO\backend\controller\caController.js:8:16
+[17:58:04] ERROR  TypeError: next is not a function
+    at model.<anonymous> (D:\MRDCO\backend\models\User.js:29:5)
+    at async Kareem.execPre (D:\MRDCO\backend\node_modules\kareem\index.js:65:24)
+    at async model.$__save (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:369:5)
+    at async model.save (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:609:5)
+    at async D:\MRDCO\backend\node_modules\mongoose\lib\model.js:2714:9
+    at async Promise.all (index 0)
+    at async model.create (D:\MRDCO\backend\node_modules\mongoose\lib\model.js:2699:11)
+    at async D:\MRDCO\backend\controller\caController.js:8:16
