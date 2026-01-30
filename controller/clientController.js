@@ -12,6 +12,8 @@ const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
 // @desc    Create Client
 // @route   POST /api/client
 // @access  Private (CA)
+const { createFolder } = require('../services/storageService');
+
 exports.createClient = catchAsync(async (req, res, next) => {
     const { name, mobileNumber, panNumber, gstNumber, tanNumber, type, customFields } = req.body
     const caId = req.user._id // From auth middleware
@@ -32,6 +34,14 @@ exports.createClient = catchAsync(async (req, res, next) => {
         dob: req.body.dob, // Added DOB
         fileNumber
     })
+
+    // MinIO: Create Folder for Client (ca-{id}/client_{id}/)
+    const bucketName = `ca-${caId}`;
+    // Ensure bucket exists (for existing CAs who didn't trigger registration hook)
+    const { createBucket } = require('../services/storageService');
+    await createBucket(bucketName);
+
+    await createFolder(bucketName, `client_${client._id}`);
 
     // Pass created client data (including gst/tan) to folder generator
     await generateClientFolders(client._id, client);

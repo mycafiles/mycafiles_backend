@@ -11,6 +11,8 @@ const generateToken = (id, role) => {
     });
 };
 
+const { createBucket } = require('../services/storageService');
+
 exports.register = async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -27,6 +29,9 @@ exports.register = async (req, res) => {
             password,
             role: 'SUPERADMIN',
         });
+
+        // MinIO: Create Bucket for new CA
+        await createBucket(`ca-${newUser._id}`);
 
         token = generateToken(newUser._id, newUser.role)
 

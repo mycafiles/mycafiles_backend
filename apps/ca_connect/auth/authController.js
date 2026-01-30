@@ -91,6 +91,8 @@ exports.loginConfirm = async (req, res) => {
             caName: client.caId ? client.caId.name : 'Unknown CA',
             caEmail: client.caId ? client.caId.email : '',
             role: 'CUSTOMER',
+            gstNumber: client.gstNumber,
+            type: client.type,
             token: generateToken(client._id, 'CUSTOMER'),
         });
 

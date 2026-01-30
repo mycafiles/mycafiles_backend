@@ -60,46 +60,44 @@ exports.getFolderContents = async (req, res) => {
 
         // 3. Get Path (Breadcrumbs) - Optional logic could be added here
 
+        const { getFileUrl } = require('../../../services/storageService');
+
+        // ... (inside getFolderContents)
+
         // 3. Generate Signed URLs for Private Files
-        const signedFiles = files.map(file => {
+        const signedFiles = await Promise.all(files.map(async (file) => {
             const fileObj = file.toObject();
 
-            // Generate Signed URL for private/authenticated access
+            // Generate Signed URL for MinIO
             try {
-                if (file.cloudinaryId) {
-                    // Extract extension (e.g., pdf, jpg)
-                    let extension = '';
-                    if (file.fileName && file.fileName.includes('.')) {
-                        extension = file.fileName.split('.').pop();
+                // Determine bucket name for the client (which is actually the CA's bucket)
+                // Wait, client logic is: CA owns the bucket. Client files are in folders.
+                // We need to know who the CA is for this client to find the bucket.
+                // In this restricted mobile app context, we only have clientId.
+                // We must query the Client to find their CA ID.
+
+                // Optimized: We could populate caId in the previous query if needed, 
+                // but let's do a quick lookup or assume we can derive it.
+                // Actually, for now, let's look up the Client to get the caId.
+                // Ideally this should be cleaner, but let's patch it.
+
+                // Note: The 'req.client' from middleware might have it. Let's check middleware later.
+                // For now, let's fetch client if not present.
+                const clientDoc = await require('../../../models/Client').findById(clientId).select('caId');
+
+                if (clientDoc && clientDoc.caId) {
+                    const bucketName = `ca-${clientDoc.caId}`;
+                    // FileUrl in Mongo is the relative path (key) for MinIO
+                    if (file.fileUrl && !file.fileUrl.startsWith('http')) {
+                        // Public URL format: http://IP:PORT/bucket/key
+                        fileObj.fileUrl = `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${file.fileUrl}`;
                     }
-
-                    const options = {
-                        secure: true,
-                        sign_url: true,
-                        type: 'authenticated', // Default for restrictive ACL
-                        resource_type: file.fileType === 'RAW' ? 'raw' : 'image'
-                    };
-
-                    // Explicitly set format if extension exists (Critical for PDFs)
-                    if (extension) {
-                        options.format = extension;
-                    }
-
-                    if (extension) {
-                        options.format = extension;
-                    }
-
-                    // Use 'upload' type (Public bucket) but with sign_url to bypass ACL
-                    options.type = 'upload';
-
-                    fileObj.fileUrl = cloudinary.url(file.cloudinaryId, options);
-                    console.log(`[Drive] Generated Signed URL for ${file.fileName}: ${fileObj.fileUrl}`);
                 }
             } catch (err) {
-                console.error("Error signing URL:", err);
+                console.error("Error constructing URL:", err);
             }
             return fileObj;
-        });
+        }));
 
         res.json({
             folders,

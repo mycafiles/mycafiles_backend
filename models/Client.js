@@ -8,7 +8,7 @@ const clientSchema = new mongoose.Schema({
     gstNumber: { type: String },
     tanNumber: { type: String },
     dob: { type: Date, required: true },
-    fileNumber: { type: Number, required: true, unique: true }, // Auto-generated 1, 2, 3...
+    fileNumber: { type: Number, required: true }, // Auto-generated 1, 2, 3...
     type: {
         type: String,
         enum: ['INDIVIDUAL', 'BUSINESS'], // ITR only vs ITR+GST [cite: 27, 28]
@@ -31,5 +31,7 @@ const clientSchema = new mongoose.Schema({
 
 // Index for faster login search
 clientSchema.index({ mobileNumber: 1, panNumber: 1 });
+// Compound index to ensure fileNumber is unique per CA
+clientSchema.index({ caId: 1, fileNumber: 1 }, { unique: true });
 
 module.exports = mongoose.models.Client || mongoose.model('Client', clientSchema);

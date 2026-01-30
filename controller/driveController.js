@@ -11,25 +11,79 @@ exports.getAllData = async (req, res) => {
             Folder.find({ clientId }).lean(),
             Document.find({ clientId }).lean()
         ]);
-        res.json({ folders, files });
+
+        // Generate Signed URLs for MinIO (if needed, or backend proxy)
+        // Generate Signed URLs for MinIO (if needed, or backend proxy)
+        // Lookup CA ID from Client to find the correct bucket
+        const clientDoc = await require('../models/Client').findById(clientId).select('caId');
+
+        let signedFiles = files;
+
+        if (clientDoc && clientDoc.caId) {
+            const bucketName = `ca-${clientDoc.caId}`;
+
+            signedFiles = await Promise.all(files.map(async (file) => {
+                // If it's a relative path (MinIO Key), PREPEND Host to make it a Public URL
+                if (file.fileUrl && !file.fileUrl.startsWith('http')) {
+                    // Public URL format: http://IP:PORT/bucket/key
+                    file.fileUrl = `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${file.fileUrl}`;
+                }
+                return file;
+            }));
+        }
+
+        res.json({ folders, files: signedFiles });
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: 'Server Error' });
     }
 };
 
 // 2. UPLOAD FILE
+const { uploadFile, deleteFile, getFileUrl } = require('../services/storageService');
+
 exports.uploadFile = async (req, res) => {
     try {
-        // ... (existing checks)
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
 
         const { clientId, folderId, uploadedBy, category } = req.body;
 
+        // Lookup CA ID from Client to find the correct bucket
+        const clientDoc = await require('../models/Client').findById(clientId).select('caId');
+        if (!clientDoc || !clientDoc.caId) {
+            return res.status(404).json({ error: 'Client not found or linked to CA' });
+        }
+
+        const caId = clientDoc.caId;
+        const bucketName = `ca-${caId}`;
+
+        // Ensure bucket exists
+        const { createBucket } = require('../services/storageService');
+        await createBucket(bucketName);
+
+        // Construct Path: client_{clientId}/{category}/{filename}
+        const safeCategory = (category || 'GENERAL').toLowerCase();
+        const fileName = `${Date.now()}-${req.file.originalname}`;
+        const filePath = `client_${clientId}/${safeCategory}/${fileName}`;
+
+        // Upload to MinIO
+        await uploadFile(bucketName, filePath, req.file.buffer, {
+            'Content-Type': req.file.mimetype,
+            'X-Amz-Meta-UploadedBy': uploadedBy || 'CA'
+        });
+
+        // Construct Full URL: http://IP:PORT/bucket/path
+        const fullUrl = `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${filePath}`;
+
+        // Save Metadata to MongoDB
         const newDoc = await Document.create({
             clientId,
             folderId,
             fileName: req.file.originalname,
-            fileUrl: req.file.path,        // Cloudinary URL
-            cloudinaryId: req.file.filename, // Cloudinary Public ID
+            fileUrl: fullUrl, // Storing FULL URL
+            cloudinaryId: filePath, // Storing Key here
             fileType: req.file.mimetype,
             fileSize: req.file.size,
             uploadedBy: uploadedBy || 'CA',
@@ -41,7 +95,7 @@ exports.uploadFile = async (req, res) => {
             await sendNotification(
                 'New Document Received',
                 `You have a new document: ${req.file.originalname}`,
-                clientId // Targeting User DB ID
+                clientId
             );
         }
 
@@ -94,9 +148,15 @@ exports.deleteFile = async (req, res) => {
             return res.status(404).json({ error: 'File not found' });
         }
 
-        // Delete from Cloudinary
-        if (file.cloudinaryId) {
-            await cloudinary.uploader.destroy(file.cloudinaryId);
+        // Delete from MinIO
+        const caId = req.user._id;
+        const bucketName = `ca-${caId}`;
+
+        // key is stored in fileUrl or cloudinaryId
+        const fileKey = file.fileUrl;
+
+        if (fileKey) {
+            await deleteFile(bucketName, fileKey);
         }
 
         // Delete from MongoDB

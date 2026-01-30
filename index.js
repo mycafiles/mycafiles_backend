@@ -28,6 +28,17 @@ app.use('/api/ca_connect', require('./apps/ca_connect/routes'));
 app.use(errorHandler);
 
 // Database Connection
+const minioClient = require('./config/minio');
+
+app.get("/test-minio", async (req, res) => {
+    try {
+        const buckets = await minioClient.listBuckets()
+        res.json({ success: true, buckets })
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
+
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mrdco';
 
