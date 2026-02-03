@@ -6,6 +6,7 @@ const bannerSchema = new mongoose.Schema({
     publicId: { type: String, required: true }, // For deletion
     isActive: { type: Boolean, default: true },
     order: { type: Number, default: 0 },
+    caId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     createdAt: { type: Date, default: Date.now }
 });
 

@@ -131,21 +131,28 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
     const errors = []
     const ext = path.extname(req.file.originalname).toLowerCase();
 
+    // Get last file number for this CA
+    const lastClient = await Client.findOne({ caId }).sort({ fileNumber: -1 });
+    let currentFileNumber = lastClient && lastClient.fileNumber ? lastClient.fileNumber : 0;
+
     try {
         if (ext === '.xlsx' || ext === '.xls') {
             const workbook = XLSX.readFile(req.file.path);
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const data = XLSX.utils.sheet_to_json(worksheet);
+            const data = XLSX.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'yyyy-mm-dd' }); // Read dates as strings if possible
 
             data.forEach((row, index) => {
                 const name = row.name || row.Name;
                 const mobileNumber = row.mobileNumber || row['Mobile Number'] || row.mobile || row.Mobile;
                 const panNumber = row.panNumber || row['PAN Number'] || row.pan || row.PAN;
                 const type = row.type || row.Type;
+                const dob = row.dob || row.DOB || row['Date of Birth'];
+                const gstNumber = row.gstNumber || row['GST Number'] || row.gst || row.GST;
+                const tanNumber = row.tanNumber || row['TAN Number'] || row.tan || row.TAN;
 
-                if (!name || !mobileNumber || !panNumber || !type) {
-                    errors.push({ row: index + 2, error: 'Missing required fields (name, mobileNumber, panNumber, type)' });
+                if (!name || !mobileNumber || !panNumber || !type || !dob) {
+                    errors.push({ row: index + 2, error: 'Missing required fields (name, mobileNumber, panNumber, type, dob)' });
                     return;
                 }
 
@@ -154,11 +161,17 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     return
                 }
 
+                currentFileNumber++;
+
                 clients.push({
                     caId,
                     name,
                     mobileNumber: String(mobileNumber),
                     panNumber,
+                    gstNumber,
+                    tanNumber,
+                    dob,
+                    fileNumber: currentFileNumber,
                     type: String(type).toUpperCase(),
                     customFields: row.customFields ? (typeof row.customFields === 'string' ? JSON.parse(row.customFields) : row.customFields) : []
                 });
@@ -191,8 +204,11 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                 .on('data', (row) => {
                     rowNumber++
                     const { name, mobileNumber, panNumber, type } = row
+                    const dob = row.dob || row.DOB || row['Date of Birth'];
+                    const gstNumber = row.gstNumber || row.gst;
+                    const tanNumber = row.tanNumber || row.tan;
 
-                    if (!name || !mobileNumber || !panNumber || !type) {
+                    if (!name || !mobileNumber || !panNumber || !type || !dob) {
                         errors.push({ row: rowNumber, error: 'Missing required fields' })
                         return
                     }
@@ -202,11 +218,17 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         return
                     }
 
+                    currentFileNumber++;
+
                     clients.push({
                         caId,
                         name,
                         mobileNumber,
                         panNumber,
+                        gstNumber,
+                        tanNumber,
+                        dob,
+                        fileNumber: currentFileNumber,
                         type: String(type).toUpperCase(),
                         customFields: row.customFields ? JSON.parse(row.customFields) : []
                     })

@@ -142,18 +142,21 @@ exports.createFolder = async (req, res) => {
 exports.deleteFile = async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(req.params, "req.params");
         const file = await Document.findById(id);
 
         if (!file) {
             return res.status(404).json({ error: 'File not found' });
         }
 
+        console.log(req.user, "req.user");
         // Delete from MinIO
         const caId = req.user._id;
         const bucketName = `ca-${caId}`;
 
         // key is stored in fileUrl or cloudinaryId
-        const fileKey = file.fileUrl;
+        // key is stored in fileUrl or cloudinaryId
+        const fileKey = file.cloudinaryId;
 
         if (fileKey) {
             await deleteFile(bucketName, fileKey);

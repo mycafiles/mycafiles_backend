@@ -6,7 +6,27 @@ const { cloudinary } = require('../middleware/uploadMiddleware');
 // @access  Public (or Client Auth)
 exports.getBanners = async (req, res) => {
     try {
-        const banners = await Banner.find({ isActive: true }).sort({ order: 1, createdAt: -1 });
+        const { caId } = req.query;
+        if (!caId) {
+            return res.status(400).json({ message: 'CA ID is required' });
+        }
+        const banners = await Banner.find({ isActive: true, caId }).sort({ order: 1, createdAt: -1 });
+        res.json(banners);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get active banners by CA ID (Body)
+// @route   POST /api/banners/fetch
+// @access  Public
+exports.getBannersByBody = async (req, res) => {
+    try {
+        const { caId } = req.body;
+        if (!caId) {
+            return res.status(400).json({ message: 'CA ID is required in body' });
+        }
+        const banners = await Banner.find({ isActive: true, caId }).sort({ order: 1, createdAt: -1 });
         res.json(banners);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -18,7 +38,8 @@ exports.getBanners = async (req, res) => {
 // @access  Private (Admin)
 exports.getAllBannersAdmin = async (req, res) => {
     try {
-        const banners = await Banner.find({}).sort({ order: 1, createdAt: -1 });
+        const caId = req.user._id;
+        const banners = await Banner.find({ caId }).sort({ order: 1, createdAt: -1 });
         res.json(banners);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -35,11 +56,14 @@ exports.createBanner = async (req, res) => {
         }
 
         const { title, order } = req.body;
+        const caId = req.user._id;
+
         const banner = await Banner.create({
             title,
             imageUrl: req.file.path,
             publicId: req.file.filename,
-            order: order || 0
+            order: order || 0,
+            caId
         });
         res.status(201).json(banner);
     } catch (error) {
