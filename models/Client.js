@@ -18,6 +18,10 @@ const clientSchema = new mongoose.Schema({
         type: Map,
         of: String
     },
+    tradeNumber: { type: String },
+    gstId: { type: String },
+    gstPassword: { type: String },
+    address: { type: String },
     isActive: { type: Boolean, default: true },
     deviceId: { type: String },
     deviceStatus: {

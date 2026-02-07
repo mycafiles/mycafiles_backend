@@ -99,3 +99,29 @@ exports.deleteFile = async (bucketName, filePath) => {
         throw err;
     }
 };
+// Delete Folder (Recursive - deletes all objects with prefix)
+exports.deleteFolder = async (bucketName, folderPath) => {
+    try {
+        const objectsList = [];
+        const stream = minioClient.listObjects(bucketName, folderPath, true);
+
+        for await (const obj of stream) {
+            objectsList.push(obj.name);
+        }
+
+        if (objectsList.length > 0) {
+            await minioClient.removeObjects(bucketName, objectsList);
+            logger.info(`Folder deleted: ${bucketName}/${folderPath} (${objectsList.length} files)`);
+        } else {
+            logger.info(`Folder empty or not found: ${bucketName}/${folderPath}`);
+        }
+    } catch (err) {
+        logger.error(`Error deleting folder ${folderPath}: ${err.message}`);
+        // Don't throw if we want to continue DB deletion even if storage fails? 
+        // Better to log and proceed or throw? 
+        // User wants "delete all", so we should try best effort. 
+        // Throwing might block DB deletion. Let's log error but allow proceed if critical?
+        // For now, let's throw to ensure consistency or handle in controller.
+        throw err;
+    }
+};

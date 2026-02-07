@@ -39,6 +39,16 @@ const documentSchema = new mongoose.Schema({
         type: String,
         enum: ['GENERAL', 'GST'],
         default: 'GENERAL'
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false
+    },
+    deletedAt: {
+        type: Date
+    },
+    deletedBy: {
+        type: String // user ID or 'SYSTEM'
     }
 }, { timestamps: true });
 

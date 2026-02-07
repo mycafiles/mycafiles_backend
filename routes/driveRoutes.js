@@ -23,4 +23,16 @@ router.delete('/files/:id', protect, driveController.deleteFile);
 // Delete Folder
 router.delete('/folders/:id', protect, driveController.deleteFolder);
 
+// 7. Get Recycle Bin Items
+router.get('/:clientId/bin', protect, driveController.getBinItems);
+
+// 8. Restore Item
+router.put('/restore/:type/:id', protect, driveController.restoreItem);
+
+// 9. Permanent Delete
+router.delete('/permanent/:type/:id', protect, driveController.permanentDelete);
+
+// 10. Download File
+router.get('/files/download/:id', protect, driveController.downloadFile);
+
 module.exports = router;

@@ -5,18 +5,26 @@ const Client = require("../models/Client")
 const catchAsync = require("../utils/catchAsync")
 const AppError = require("../utils/AppError")
 const logger = require("../utils/logger")
-const { generateClientFolders } = require("../services/folderService")
+const Folder = require("../models/Folder")
+const Document = require("../models/Document")
+const { generateClientFolders, deleteFolder: deleteFolderService } = require("../services/folderService")
+const { createBucket, createFolder, deleteFolder } = require('../services/storageService');
 
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
 
-// @desc    Create Client
-// @route   POST /api/client
-// @access  Private (CA)
-const { createFolder } = require('../services/storageService');
-
 exports.createClient = catchAsync(async (req, res, next) => {
-    const { name, mobileNumber, panNumber, gstNumber, tanNumber, type, customFields } = req.body
+    const { name, mobileNumber, panNumber, gstNumber, tanNumber, type, customFields, tradeNumber, gstId, gstPassword, address } = req.body
     const caId = req.user._id // From auth middleware
+
+    // Validation: GST Number must contain PAN Number
+    if (gstNumber && panNumber) {
+        // Extract chars 3-12 from GST and compare with PAN
+        // Or simpler: gstNumber.includes(panNumber) if strictly formatted
+        // Frontend uses: gstNumber.substring(2, 12).
+        if (gstNumber.length >= 12 && gstNumber.substring(2, 12) !== panNumber) {
+            return next(new AppError('GST Number does not match the provided PAN Number', 400));
+        }
+    }
 
     // Auto-generate File Number
     const lastClient = await Client.findOne({ caId }).sort({ fileNumber: -1 });
@@ -29,6 +37,10 @@ exports.createClient = catchAsync(async (req, res, next) => {
         panNumber,
         gstNumber,
         tanNumber,
+        tradeNumber,
+        gstId,
+        gstPassword,
+        address,
         type,
         customFields,
         dob: req.body.dob, // Added DOB
@@ -103,16 +115,41 @@ exports.editClient = catchAsync(async (req, res, next) => {
 // @access  Private (CA)
 exports.deleteClient = catchAsync(async (req, res, next) => {
     const caId = req.user._id
-    const client = await Client.findOneAndDelete({ _id: req.params.id, caId })
+    const clientId = req.params.id
+
+    // 1. Find Client
+    const client = await Client.findOne({ _id: clientId, caId })
 
     if (!client) {
         return next(new AppError('No client found with that ID associated with your account', 404))
     }
 
-    logger.info(`Client deleted: ${req.params.id} by CA: ${caId}`)
+    // 2. Delete Physical Files from MinIO
+    // Structure: ca-{caId}/client_{clientId}/
+    const bucketName = `ca-${caId}`;
+    const clientFolderPath = `client_${clientId}/`;
+
+    try {
+        await deleteFolder(bucketName, clientFolderPath);
+    } catch (err) {
+        logger.error(`Failed to delete client folder from storage: ${err.message}`);
+        // Proceed with DB deletion regardless? 
+        // Yes, ensuring DB is clean is priority to prevent "ghost" clients.
+    }
+
+    // 3. Delete Documents from DB
+    await Document.deleteMany({ clientId });
+
+    // 4. Delete Folders from DB
+    await Folder.deleteMany({ clientId });
+
+    // 5. Delete Client from DB
+    await Client.deleteOne({ _id: clientId });
+
+    logger.info(`Client deleted (CASCADE): ${clientId} by CA: ${caId}`)
     res.status(200).json({
         status: 'success',
-        message: 'Client deleted successfully'
+        message: 'Client and all associated data deleted successfully'
     })
 })
 
@@ -148,6 +185,11 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                 const panNumber = row.panNumber || row['PAN Number'] || row.pan || row.PAN;
                 const type = row.type || row.Type;
                 const dob = row.dob || row.DOB || row['Date of Birth'];
+                const result_tradeNumber = row.tradeNumber || row['Trade Number'] || row['Trade Name'];
+                const result_gstId = row.gstId || row['GST ID'] || row['GST User'] || row['GST Username'];
+                const result_gstPassword = row.gstPassword || row['GST Password'];
+                const result_address = row.address || row.Address;
+
                 const gstNumber = row.gstNumber || row['GST Number'] || row.gst || row.GST;
                 const tanNumber = row.tanNumber || row['TAN Number'] || row.tan || row.TAN;
 
@@ -161,6 +203,14 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     return
                 }
 
+                // Validation: GST-PAN Match
+                if (gstNumber && panNumber) {
+                    if (gstNumber.length >= 12 && gstNumber.substring(2, 12) !== panNumber) {
+                        errors.push({ row: index + 2, error: `GST Number does not match PAN: ${gstNumber} vs ${panNumber}` });
+                        return;
+                    }
+                }
+
                 currentFileNumber++;
 
                 clients.push({
@@ -170,6 +220,10 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     panNumber,
                     gstNumber,
                     tanNumber,
+                    tradeNumber: result_tradeNumber,
+                    gstId: result_gstId,
+                    gstPassword: result_gstPassword,
+                    address: result_address,
                     dob,
                     fileNumber: currentFileNumber,
                     type: String(type).toUpperCase(),
@@ -188,10 +242,55 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                 });
             }
 
-            const createdClients = await Client.insertMany(clients);
+            // Deduplicate within the file itself
+            const uniqueClients = [];
+            const seenPanInFile = new Set();
+            clients.forEach(c => {
+                const pan = c.panNumber.toUpperCase().trim();
+                if (!seenPanInFile.has(pan)) {
+                    seenPanInFile.add(pan);
+                    c.panNumber = pan; // Ensure clean PAN
+                    uniqueClients.push(c);
+                }
+            });
+
+            // Check for duplicates in DB
+            const panNumbers = uniqueClients.map(c => c.panNumber);
+            const existingClients = await Client.find({
+                caId,
+                panNumber: { $in: panNumbers }
+            }).select('panNumber');
+
+            const existingPanSet = new Set(existingClients.map(c => c.panNumber));
+
+            console.log(`[BulkUpload] File count: ${clients.length}, Unique in File: ${uniqueClients.length}, Existing in DB: ${existingClients.length}`);
+
+            // Filter out duplicates
+            const newClients = uniqueClients.filter(c => !existingPanSet.has(c.panNumber));
+
+            if (newClients.length === 0) {
+                return res.status(200).json({
+                    status: 'success',
+                    message: 'All clients in the file already exist.',
+                    errors: errors.length > 0 ? errors : undefined,
+                    count: 0,
+                    skipped: clients.length
+                });
+            }
+
+            const createdClients = await Client.insertMany(newClients);
+
+            // Generate Folders (Batched to prevent overload)
+            const batchSize = 50;
+            for (let i = 0; i < createdClients.length; i += batchSize) {
+                const batch = createdClients.slice(i, i + batchSize);
+                await Promise.all(batch.map(client => generateClientFolders(client._id, client)));
+            }
+
             return res.status(201).json({
                 status: 'success',
                 count: createdClients.length,
+                skipped: clients.length - createdClients.length,
                 errors: errors.length > 0 ? errors : undefined,
                 data: createdClients
             });
@@ -205,6 +304,11 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     rowNumber++
                     const { name, mobileNumber, panNumber, type } = row
                     const dob = row.dob || row.DOB || row['Date of Birth'];
+                    const result_tradeNumber = row.tradeNumber;
+                    const result_gstId = row.gstId;
+                    const result_gstPassword = row.gstPassword;
+                    const result_address = row.address;
+
                     const gstNumber = row.gstNumber || row.gst;
                     const tanNumber = row.tanNumber || row.tan;
 
@@ -218,6 +322,14 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         return
                     }
 
+                    // Validation: GST-PAN Match
+                    if (gstNumber && panNumber) {
+                        if (gstNumber.length >= 12 && gstNumber.substring(2, 12) !== panNumber) {
+                            errors.push({ row: rowNumber, error: `GST Number does not match PAN: ${gstNumber} vs ${panNumber}` });
+                            return;
+                        }
+                    }
+
                     currentFileNumber++;
 
                     clients.push({
@@ -227,6 +339,10 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         panNumber,
                         gstNumber,
                         tanNumber,
+                        tradeNumber: result_tradeNumber,
+                        gstId: result_gstId,
+                        gstPassword: result_gstPassword,
+                        address: result_address,
                         dob,
                         fileNumber: currentFileNumber,
                         type: String(type).toUpperCase(),
@@ -245,12 +361,55 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                             })
                         }
 
-                        const createdClients = await Client.insertMany(clients)
+                        // Deduplicate within the file itself
+                        const uniqueClients = [];
+                        const seenPanInFile = new Set();
+                        clients.forEach(c => {
+                            const pan = c.panNumber.toUpperCase().trim();
+                            if (!seenPanInFile.has(pan)) {
+                                seenPanInFile.add(pan);
+                                c.panNumber = pan;
+                                uniqueClients.push(c);
+                            }
+                        });
+
+
+                        const panNumbers = uniqueClients.map(c => c.panNumber);
+                        const existingClients = await Client.find({
+                            caId,
+                            panNumber: { $in: panNumbers }
+                        }).select('panNumber');
+
+                        const existingPanSet = new Set(existingClients.map(c => c.panNumber));
+
+                        console.log(`[BulkUpload-CSV] File: ${clients.length}, Unique: ${uniqueClients.length}, Existing: ${existingClients.length}`);
+
+                        const newClients = uniqueClients.filter(c => !existingPanSet.has(c.panNumber));
+
+                        if (newClients.length === 0) {
+                            return res.status(200).json({
+                                status: 'success',
+                                message: 'All clients in the CSV already exist.',
+                                errors: errors.length > 0 ? errors : undefined,
+                                count: 0,
+                                skipped: clients.length
+                            })
+                        }
+
+                        const createdClients = await Client.insertMany(newClients)
+
+                        // Generate Folders (Batched to prevent overload)
+                        const batchSize = 50;
+                        for (let i = 0; i < createdClients.length; i += batchSize) {
+                            const batch = createdClients.slice(i, i + batchSize);
+                            await Promise.all(batch.map(client => generateClientFolders(client._id, client)));
+                        }
 
                         logger.info(`Bulk upload: ${createdClients.length} clients created by CA: ${caId}`)
                         res.status(201).json({
                             status: 'success',
                             count: createdClients.length,
+                            skipped: clients.length - createdClients.length,
                             errors: errors.length > 0 ? errors : undefined,
                             data: createdClients
                         })

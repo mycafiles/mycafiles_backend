@@ -13,7 +13,7 @@ const folderSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['ITR', 'GST', 'TAN', 'KYC'],
+    enum: ['ITR', 'GST', 'TDS', 'KYC'],
     required: true
   },
   parentFolderId: {
@@ -25,6 +25,16 @@ const folderSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder' },
     name: String
   }],
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date
+  },
+  deletedBy: {
+    type: String
+  }
 }, { timestamps: true });
 
 // INDEX: Speeds up "Open Folder" queries massively

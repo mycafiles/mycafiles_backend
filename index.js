@@ -27,6 +27,13 @@ app.use('/api/ca_connect', require('./apps/ca_connect/routes'));
 // Global Error Handling Middleware
 app.use(errorHandler);
 
+// Cron Jobs
+const cleanupBin = require('./cron/cleanupBin');
+cleanupBin();
+
+const initFinancialYearRollover = require('./cron/financialYearRollover');
+initFinancialYearRollover();
+
 // Database Connection
 const minioClient = require('./config/minio');
 

@@ -22,7 +22,6 @@ const getFinancialYears = () => {
         `FY - ${startYear - 2}-${(startYear - 1).toString().slice(-2)}`,
         `FY - ${startYear - 1}-${startYear.toString().slice(-2)}`,
         `FY - ${startYear}-${(startYear + 1).toString().slice(-2)}`, // Current
-        `FY - ${startYear + 1}-${(startYear + 2).toString().slice(-2)}`,
     ];
 };
 
@@ -46,7 +45,14 @@ exports.generateClientFolders = async (clientId, clientData) => {
     const financialYears = getFinancialYears();
 
     // Extract GST/TAN availability
-    const hasGST = !!clientData.gstNumber;
+    // Extract GST/TAN availability
+    // LOGIC UPDATE: 'BUSINESS' clients get GST folders, 'INDIVIDUAL' do not.
+    // TAN logic remains based on tanNumber existence for now (or could be implied).
+    const isBusiness = clientData.type === 'BUSINESS';
+    const hasGST = isBusiness; // Business clients get GST folder regardless of number? Or if they have number? User said "Business Client Should have default GST folder"
+    // "Individual client have itr only".
+
+    // Explicitly using type as requested
     const hasTAN = !!clientData.tanNumber;
 
     try {
@@ -86,17 +92,17 @@ exports.generateClientFolders = async (clientId, clientData) => {
             }
         }
 
-        // --- 4. TAN (Only if TAN Number exists) ---
+        // --- 4. TDS (Only if TDS Number exists) ---
         if (hasTAN) {
-            const tanRoot = await createFolderRecursive('TAN', clientId, 'TAN');
+            const tanRoot = await createFolderRecursive('TDS', clientId, 'TDS');
             const tanRootPath = [{ _id: tanRoot._id, name: tanRoot.name }];
 
             for (const year of financialYears) {
-                const yearFolder = await createFolderRecursive(year, clientId, 'TAN', tanRoot._id, tanRootPath);
+                const yearFolder = await createFolderRecursive(year, clientId, 'TDS', tanRoot._id, tanRootPath);
                 const yearPath = [...tanRootPath, { _id: yearFolder._id, name: yearFolder.name }];
 
                 for (const quarter of QUARTERS) {
-                    await createFolderRecursive(quarter, clientId, 'TAN', yearFolder._id, yearPath);
+                    await createFolderRecursive(quarter, clientId, 'TDS', yearFolder._id, yearPath);
                 }
             }
         }

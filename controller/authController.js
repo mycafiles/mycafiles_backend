@@ -242,6 +242,43 @@ exports.deviceCheck = async (req, res) => {
     }
 };
 
+// @desc    Update User Profile
+// @route   PUT /api/auth/profile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+
+        if (user) {
+            user.name = req.body.name || user.name;
+            user.phone = req.body.phone || user.phone;
+            user.FRNno = req.body.FRNno || user.FRNno;
+
+            if (req.body.password) {
+                // Check if password and confirmPassword match if needed, but assuming simple update here
+                // Mongoose pre-save hook will hash it
+                user.password = req.body.password;
+            }
+
+            const updatedUser = await user.save();
+
+            res.json({
+                _id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                phone: updatedUser.phone,
+                FRNno: updatedUser.FRNno,
+                token: generateToken(updatedUser._id, updatedUser.role),
+            });
+        } else {
+            res.status(404).json({ message: 'User not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Logout
 // @route   POST /api/auth/logout
 // @access  Public

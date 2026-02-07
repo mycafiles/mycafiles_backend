@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema({
         enum: ['active', 'inactive'], // CA Subscription status [cite: 16]
         default: 'active'
     },
+    phone: { type: String },
+    FRNno: { type: String }, // Firm Registration Number
     createdAt: { type: Date, default: Date.now }
 });
 
