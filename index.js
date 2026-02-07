@@ -10,7 +10,10 @@ require('dotenv').config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: ['https://mycafiles.com', 'https://admin.mycafiles.com', 'http://localhost:5173', 'http://localhost:3000'],
+    credentials: true
+}));
 
 app.use(helmet());
 if (process.env.NODE_ENV === 'development') {
