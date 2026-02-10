@@ -1,5 +1,6 @@
 const LoginRequest = require('../models/LoginRequest');
 const Client = require('../models/Client');
+const { logActivity } = require('../services/activityService');
 
 // @desc    Get all pending login requests
 // @route   GET /api/approvals
@@ -50,6 +51,13 @@ exports.handleApproval = async (req, res) => {
                 }
             }
         }
+
+        await logActivity({
+            caId: req.user._id,
+            action: status === 'APPROVED' ? 'APPROVE_DEVICE' : 'REJECT_DEVICE',
+            details: `${status === 'APPROVED' ? 'Approved' : 'Rejected'} device login request for client: ${loginRequest.clientId?.name || 'Unknown'}`,
+            clientId: loginRequest.clientId?._id
+        });
 
         res.json({ message: `Request ${status.toLowerCase()} successfully`, loginRequest });
     } catch (error) {

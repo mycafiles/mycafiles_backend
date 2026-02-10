@@ -9,6 +9,7 @@ const Folder = require("../models/Folder")
 const Document = require("../models/Document")
 const { generateClientFolders, deleteFolder: deleteFolderService } = require("../services/folderService")
 const { createBucket, createFolder, deleteFolder } = require('../services/storageService');
+const { logActivity } = require('../services/activityService');
 
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
 
@@ -58,6 +59,14 @@ exports.createClient = catchAsync(async (req, res, next) => {
     // Pass created client data (including gst/tan) to folder generator
     await generateClientFolders(client._id, client);
 
+    await logActivity({
+        caId,
+        action: 'CREATE_CLIENT',
+        details: `Created new client: ${client.name} (${client.panNumber})`,
+        clientId: client._id,
+        clientName: client.name
+    });
+
     logger.info(`Client created: ${client._id} by CA: ${caId}`)
     res.status(201).json({
         status: 'success',
@@ -103,6 +112,14 @@ exports.editClient = catchAsync(async (req, res, next) => {
         return next(new AppError('No client found with that ID associated with your account', 404))
     }
 
+    await logActivity({
+        caId,
+        action: 'UPDATE_CLIENT',
+        details: `Updated details for client: ${client.name}`,
+        clientId: client._id,
+        clientName: client.name
+    });
+
     logger.info(`Client updated: ${req.params.id} by CA: ${caId}`)
     res.status(200).json({
         status: 'success',
@@ -145,6 +162,14 @@ exports.deleteClient = catchAsync(async (req, res, next) => {
 
     // 5. Delete Client from DB
     await Client.deleteOne({ _id: clientId });
+
+    await logActivity({
+        caId,
+        action: 'DELETE_CLIENT',
+        details: `Deleted client (CASCADE): ${client.name}`,
+        clientId: client._id,
+        clientName: client.name
+    });
 
     logger.info(`Client deleted (CASCADE): ${clientId} by CA: ${caId}`)
     res.status(200).json({
@@ -279,6 +304,12 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
             }
 
             const createdClients = await Client.insertMany(newClients);
+
+            await logActivity({
+                caId,
+                action: 'CREATE_CLIENT',
+                details: `Bulk uploaded ${createdClients.length} clients successfully`,
+            });
 
             // Generate Folders (Batched to prevent overload)
             const batchSize = 50;

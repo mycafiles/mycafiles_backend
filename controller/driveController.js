@@ -2,6 +2,7 @@ const Folder = require('../models/Folder');
 const Document = require('../models/Document');
 const { cloudinary } = require('../config/fileStorage');
 const { sendNotification } = require('../services/notificationService');
+const { logActivity } = require('../services/activityService');
 
 // 1. GET ALL (Eager Load - Same as before)
 exports.getAllData = async (req, res) => {
@@ -90,6 +91,14 @@ exports.uploadFile = async (req, res) => {
             category: category || 'GENERAL'
         });
 
+        await logActivity({
+            caId: clientDoc.caId,
+            action: 'UPLOAD_FILE',
+            details: `Uploaded file: ${req.file.originalname}`,
+            clientId,
+            docId: newDoc._id
+        });
+
         // Trigger Notification
         if (clientId) {
             await sendNotification(
@@ -131,6 +140,16 @@ exports.createFolder = async (req, res) => {
             path
         });
 
+        if (req.user) {
+            await logActivity({
+                caId: req.user._id,
+                action: 'CREATE_FOLDER',
+                details: `Created folder: ${name}`,
+                clientId,
+                folderId: newFolder._id
+            });
+        }
+
         res.status(201).json(newFolder);
     } catch (err) {
         console.error(err);
@@ -153,6 +172,16 @@ exports.deleteFile = async (req, res) => {
         file.deletedAt = new Date();
         file.deletedBy = req.user ? req.user._id : 'SYSTEM';
         await file.save();
+
+        if (req.user) {
+            await logActivity({
+                caId: req.user._id,
+                action: 'DELETE_FILE',
+                details: `Moved file to recycle bin: ${file.fileName}`,
+                clientId: file.clientId,
+                docId: file._id
+            });
+        }
 
         res.json({ message: 'File moved to Recycle Bin' });
     } catch (err) {
@@ -183,6 +212,16 @@ exports.deleteFolder = async (req, res) => {
         folder.deletedAt = new Date();
         folder.deletedBy = req.user ? req.user._id : 'SYSTEM';
         await folder.save();
+
+        if (req.user) {
+            await logActivity({
+                caId: req.user._id,
+                action: 'DELETE_FOLDER',
+                details: `Moved folder to recycle bin: ${folder.name}`,
+                clientId: folder.clientId,
+                folderId: folder._id
+            });
+        }
 
         res.json({ message: 'Folder moved to Recycle Bin' });
     } catch (err) {
@@ -229,6 +268,17 @@ exports.restoreItem = async (req, res) => {
             return res.status(400).json({ error: 'Invalid type' });
         }
 
+        if (req.user) {
+            const item = type === 'file' ? await Document.findById(id) : await Folder.findById(id);
+            await logActivity({
+                caId: req.user._id,
+                action: type === 'file' ? 'RESTORE_FILE' : 'RESTORE_FOLDER',
+                details: `Restored ${type} from recycle bin: ${item?.name || item?.fileName || id}`,
+                clientId: item?.clientId,
+                [type === 'file' ? 'docId' : 'folderId']: id
+            });
+        }
+
         res.json({ message: 'Item restored successfully' });
     } catch (err) {
         console.error(err);
@@ -266,6 +316,14 @@ exports.permanentDelete = async (req, res) => {
             return res.status(400).json({ error: 'Invalid type' });
         }
 
+        if (req.user) {
+            await logActivity({
+                caId: req.user._id,
+                action: type === 'file' ? 'PERMANENT_DELETE_FILE' : 'PERMANENT_DELETE_FOLDER',
+                details: `Permanently deleted ${type}: ${id}`,
+            });
+        }
+
         res.json({ message: 'Item permanently deleted' });
     } catch (err) {
         console.error(err);
@@ -288,7 +346,7 @@ exports.getFolderContents = async (req, res) => {
         if (!queryFolderId && category) {
             const rootFolder = await Folder.findOne({
                 clientId,
-                name: category,
+                category: category,
                 parentFolderId: null
             });
 

@@ -4,6 +4,7 @@ const LoginRequest = require('../models/LoginRequest');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
+const { logActivity } = require('../services/activityService');
 
 const generateToken = (id, role) => {
     return jwt.sign({ id, role }, process.env.JWT_SECRET || 'fallback_secret', {
@@ -32,6 +33,12 @@ exports.register = async (req, res) => {
 
         // MinIO: Create Bucket for new CA
         await createBucket(`ca-${newUser._id}`);
+
+        await logActivity({
+            caId: newUser._id,
+            action: 'CA_REGISTER',
+            details: `New CA registered: ${newUser.name} (${newUser.email})`
+        });
 
         token = generateToken(newUser._id, newUser.role)
 
@@ -270,6 +277,12 @@ exports.updateProfile = async (req, res) => {
                 phone: updatedUser.phone,
                 FRNno: updatedUser.FRNno,
                 token: generateToken(updatedUser._id, updatedUser.role),
+            });
+
+            await logActivity({
+                caId: updatedUser._id,
+                action: 'UPDATE_PROFILE',
+                details: `Profile updated for CA: ${updatedUser.name}`
             });
         } else {
             res.status(404).json({ message: 'User not found' });

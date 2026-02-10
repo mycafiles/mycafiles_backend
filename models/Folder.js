@@ -13,7 +13,7 @@ const folderSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['ITR', 'GST', 'TDS', 'KYC'],
+    enum: ['ITR', 'GST', 'TDS', 'KYC', 'GENERAL'],
     required: true
   },
   parentFolderId: {

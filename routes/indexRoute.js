@@ -6,6 +6,7 @@ router.use('/ca', require('./caRoutes'));
 router.use('/client', require('./clientRoute'));
 router.use('/drive', require('./driveRoutes'));
 router.use('/approvals', require('./approvalRoutes'));
+router.use('/activity', require('./activityRoutes'));
 // router.use('/banners', require('./bannerRoutes')); // Moved to ca_connect
 
 module.exports = router;

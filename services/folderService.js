@@ -1,5 +1,6 @@
 // services/folderService.js
 const Folder = require('../models/Folder');
+const { logActivity } = require('../services/activityService');
 
 // 1. CONSTANTS
 const MONTHS = [
@@ -57,55 +58,54 @@ exports.generateClientFolders = async (clientId, clientData) => {
 
     try {
         // --- 1. KYC (One-time Root Folder, Always) ---
-        await createFolderRecursive('KYC', clientId, 'KYC');
+        await createFolderRecursive('KYC DOCUMENT', clientId, 'KYC');
 
-        // --- 2. Income Tax (For Everyone) ---
-        // Root: "Income Tax"
-        const itrRoot = await createFolderRecursive('Income Tax', clientId, 'ITR');
-        const itrRootPath = [{ _id: itrRoot._id, name: itrRoot.name }];
-
+        // --- 2. Iterate through Financial Years (Root Folders) ---
         for (const year of financialYears) {
-            // "Income Tax" -> "FY-202X-2Y"
-            await createFolderRecursive(year, clientId, 'ITR', itrRoot._id, itrRootPath);
-        }
+            // Create Year Folder at Root
+            const yearRoot = await createFolderRecursive(year, clientId, 'GENERAL');
+            const yearRootPath = [{ _id: yearRoot._id, name: yearRoot.name }];
 
-        // --- 3. GST (Only if GST Number exists) ---
-        if (hasGST) {
-            // Root: "GST"
-            const gstRoot = await createFolderRecursive('GST', clientId, 'GST');
-            const gstRootPath = [{ _id: gstRoot._id, name: gstRoot.name }];
+            // --- 2a. Income Tax (Inside Year) ---
+            const itrFolder = await createFolderRecursive('Income Tax', clientId, 'ITR', yearRoot._id, yearRootPath);
+            const itrPath = [...yearRootPath, { _id: itrFolder._id, name: itrFolder.name }];
 
-            for (const year of financialYears) {
-                // "GST" -> "FY-202X-2Y"
-                const yearFolder = await createFolderRecursive(year, clientId, 'GST', gstRoot._id, gstRootPath);
-                const yearPath = [...gstRootPath, { _id: yearFolder._id, name: yearFolder.name }];
+            // Add "Bank statement" inside Income Tax
+            await createFolderRecursive('Bank statement', clientId, 'ITR', itrFolder._id, itrPath);
 
-                // Create Months
+            // --- 2b. GST (Inside Year, Only if Business) ---
+            if (hasGST) {
+                const gstFolder = await createFolderRecursive('GST', clientId, 'GST', yearRoot._id, yearRootPath);
+                const gstPath = [...yearRootPath, { _id: gstFolder._id, name: gstFolder.name }];
+
+                // Create Months inside GST
                 for (const month of MONTHS) {
-                    const monthFolder = await createFolderRecursive(month, clientId, 'GST', yearFolder._id, yearPath);
-                    const monthPath = [...yearPath, { _id: monthFolder._id, name: monthFolder.name }];
+                    const monthFolder = await createFolderRecursive(month, clientId, 'GST', gstFolder._id, gstPath);
+                    const monthPath = [...gstPath, { _id: monthFolder._id, name: monthFolder.name }];
 
                     // Sales and Purchase Bills folders inside "Month"
                     await createFolderRecursive('Sale Bill', clientId, 'GST', monthFolder._id, monthPath);
                     await createFolderRecursive('Purchase Bill', clientId, 'GST', monthFolder._id, monthPath);
                 }
             }
-        }
 
-        // --- 4. TDS (Only if TDS Number exists) ---
-        if (hasTAN) {
-            const tanRoot = await createFolderRecursive('TDS', clientId, 'TDS');
-            const tanRootPath = [{ _id: tanRoot._id, name: tanRoot.name }];
-
-            for (const year of financialYears) {
-                const yearFolder = await createFolderRecursive(year, clientId, 'TDS', tanRoot._id, tanRootPath);
-                const yearPath = [...tanRootPath, { _id: yearFolder._id, name: yearFolder.name }];
+            // --- 2c. TDS (Inside Year, Only if TAN exists) ---
+            if (hasTAN) {
+                const tdsFolder = await createFolderRecursive('TDS', clientId, 'TDS', yearRoot._id, yearRootPath);
+                const tdsPath = [...yearRootPath, { _id: tdsFolder._id, name: tdsFolder.name }];
 
                 for (const quarter of QUARTERS) {
-                    await createFolderRecursive(quarter, clientId, 'TDS', yearFolder._id, yearPath);
+                    await createFolderRecursive(quarter, clientId, 'TDS', tdsFolder._id, tdsPath);
                 }
             }
         }
+
+        await logActivity({
+            caId: clientData?.caId, // Try to get caId from clientData if passed
+            action: 'GENERATE_FOLDERS',
+            details: `Generated standard folder structure for client: ${clientData?.name || clientId}`,
+            clientId: clientId
+        });
 
         console.log(`[FolderService] Folders generated successfully.`);
 
