@@ -104,7 +104,12 @@ exports.uploadFile = async (req, res) => {
             await sendNotification(
                 'New Document Received',
                 `You have a new document: ${req.file.originalname}`,
-                clientId
+                clientId,
+                {
+                    data: {
+                        docId: newDoc._id
+                    }
+                }
             );
         }
 

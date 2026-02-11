@@ -224,9 +224,19 @@ exports.uploadFile = async (req, res) => {
             `Client ${clientDoc.name} has uploaded a new document: ${req.file.originalname}`,
             clientDoc.caId.toString(),
             {
-                clientId: clientId,
-                docId: newDoc._id,
-                type: 'CLIENT_UPLOAD'
+                saveToDb: true,
+                senderId: clientId,
+                type: 'FILE_UPLOAD',
+                data: {
+                    clientId: clientId,
+                    docId: newDoc._id,
+                    type: 'CLIENT_UPLOAD'
+                },
+                metadata: {
+                    clientId: clientId,
+                    docId: newDoc._id,
+                    folderId: targetFolderId
+                }
             }
         );
 
