@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { logActivity } = require('../services/activityService');
+const { sendNotification } = require('../services/notificationService');
 const sendEmail = require('../services/emailService');
 
 const generateToken = (id, role) => {
@@ -211,6 +212,24 @@ exports.mobileLogin = async (req, res) => {
                 deviceName: deviceName || 'Unknown Device',
                 status: 'PENDING'
             });
+
+            // Trigger notification to CA Admin
+            if (client && client.caId) {
+                await sendNotification(
+                    'Device Approval Required',
+                    `New device login request from: ${client.name} (${deviceName || 'Unknown Device'})`,
+                    client.caId,
+                    {
+                        saveToDb: true,
+                        senderId: client._id,
+                        type: 'DEVICE_APPROVAL',
+                        metadata: {
+                            clientId: client._id,
+                            requestId: loginRequest._id
+                        }
+                    }
+                );
+            }
         }
 
         res.status(403).json({
