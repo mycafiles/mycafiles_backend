@@ -1,5 +1,6 @@
 const Folder = require('../models/Folder');
 const Document = require('../models/Document');
+const Client = require('../models/Client');
 const { cloudinary } = require('../config/fileStorage');
 const { sendNotification } = require('../services/notificationService');
 const { logActivity } = require('../services/activityService');
@@ -239,10 +240,20 @@ exports.deleteFolder = async (req, res) => {
 exports.getBinItems = async (req, res) => {
     try {
         const { clientId } = req.params;
+        let query = {};
+
+        if (clientId === 'all') {
+            // Find all clients for this CA
+            const clients = await Client.find({ caId: req.user._id }).select('_id');
+            const clientIds = clients.map(c => c._id);
+            query = { clientId: { $in: clientIds }, isDeleted: true };
+        } else {
+            query = { clientId, isDeleted: true };
+        }
 
         const [folders, files] = await Promise.all([
-            Folder.find({ clientId, isDeleted: true }).sort({ deletedAt: -1 }).lean(),
-            Document.find({ clientId, isDeleted: true }).sort({ deletedAt: -1 }).lean()
+            Folder.find(query).sort({ deletedAt: -1 }).lean(),
+            Document.find(query).sort({ deletedAt: -1 }).lean()
         ]);
 
         res.json({ folders, files });
