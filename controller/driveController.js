@@ -100,15 +100,23 @@ exports.uploadFile = async (req, res) => {
             docId: newDoc._id
         });
 
-        // Trigger Notification to CA Admin
-        if (clientDoc && clientDoc.caId) {
+        // Send Notification
+        const isUploadedByCA = (uploadedBy || 'CA') === 'CA';
+        const recipientId = isUploadedByCA ? clientId : (clientDoc.caId ? clientDoc.caId.toString() : null);
+
+        if (recipientId) {
+            const title = 'New Document Received';
+            const body = isUploadedByCA
+                ? `Your CA has uploaded a new document: ${req.file.originalname}`
+                : `${clientDoc.name || 'A client'} has uploaded a new document: ${req.file.originalname}`;
+
             await sendNotification(
-                'New Document Received',
-                `${clientDoc.name || 'A client'} has uploaded a new document: ${req.file.originalname}`,
-                clientDoc.caId,
+                title,
+                body,
+                recipientId,
                 {
                     saveToDb: true,
-                    senderId: clientId,
+                    senderId: isUploadedByCA ? clientDoc.caId : clientId,
                     type: 'FILE_UPLOAD',
                     metadata: {
                         docId: newDoc._id,
