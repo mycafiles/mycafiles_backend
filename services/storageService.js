@@ -99,6 +99,18 @@ exports.deleteFile = async (bucketName, filePath) => {
         throw err;
     }
 };
+
+// Get Object Stream for download
+exports.getObjectStream = async (bucketName, filePath) => {
+    try {
+        const stream = await minioClient.getObject(bucketName, filePath);
+        return stream;
+    } catch (err) {
+        logger.error(`Error getting object stream for ${filePath}: ${err.message}`);
+        throw err;
+    }
+};
+
 // Delete Folder (Recursive - deletes all objects with prefix)
 exports.deleteFolder = async (bucketName, folderPath) => {
     try {

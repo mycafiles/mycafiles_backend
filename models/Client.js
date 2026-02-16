@@ -7,7 +7,7 @@ const clientSchema = new mongoose.Schema({
     panNumber: { type: String, required: true },   // Login Credential 2 
     gstNumber: { type: String },
     tanNumber: { type: String },
-    dob: { type: Date, required: true },
+    dob: { type: Date },
     fileNumber: { type: Number, required: true }, // Auto-generated 1, 2, 3...
     type: {
         type: String,

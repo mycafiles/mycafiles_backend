@@ -218,8 +218,8 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                 const gstNumber = row.gstNumber || row['GST Number'] || row.gst || row.GST;
                 const tanNumber = row.tanNumber || row['TAN Number'] || row.tan || row.TAN;
 
-                if (!name || !mobileNumber || !panNumber || !type || !dob) {
-                    errors.push({ row: index + 2, error: 'Missing required fields (name, mobileNumber, panNumber, type, dob)' });
+                if (!name || !mobileNumber || !panNumber || !type) {
+                    errors.push({ row: index + 2, error: 'Missing required fields (name, mobileNumber, panNumber, type)' });
                     return;
                 }
 
@@ -343,7 +343,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     const gstNumber = row.gstNumber || row.gst;
                     const tanNumber = row.tanNumber || row.tan;
 
-                    if (!name || !mobileNumber || !panNumber || !type || !dob) {
+                    if (!name || !mobileNumber || !panNumber || !type) {
                         errors.push({ row: rowNumber, error: 'Missing required fields' })
                         return
                     }
