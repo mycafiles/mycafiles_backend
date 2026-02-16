@@ -33,15 +33,22 @@ exports.viewCa = catchAsync(async (req, res, next) => {
 });
 
 exports.editCa = catchAsync(async (req, res, next) => {
-    const ca = await CA.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true
-    });
+    const { name, email, password } = req.body;
+
+    const ca = await CA.findById(req.params.id);
 
     if (!ca) {
         logger.error(`CA NOT FOUND | ID: ${req.params.id}`);
         return next(new AppError("No CA found with that ID", 404));
     }
+
+    if (name) ca.name = name;
+    if (email) ca.email = email;
+    if (password && password.trim() !== "") {
+        ca.password = password;
+    }
+
+    await ca.save();
 
     logger.info(`CA UPDATED | ID: ${req.params.id}`);
 
