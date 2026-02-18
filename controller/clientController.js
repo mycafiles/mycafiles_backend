@@ -42,7 +42,7 @@ exports.createClient = catchAsync(async (req, res, next) => {
         gstId,
         gstPassword,
         address,
-        type,
+        type: type || (gstNumber ? 'BUSINESS' : 'INDIVIDUAL'),
         customFields,
         dob: req.body.dob, // Added DOB
         fileNumber
@@ -218,8 +218,8 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                 const gstNumber = row.gstNumber || row['GST Number'] || row.gst || row.GST;
                 const tanNumber = row.tanNumber || row['TAN Number'] || row.tan || row.TAN;
 
-                if (!name || !mobileNumber || !panNumber || !type) {
-                    errors.push({ row: index + 2, error: 'Missing required fields (name, mobileNumber, panNumber, type)' });
+                if (!name || !mobileNumber || !panNumber) {
+                    errors.push({ row: index + 2, error: 'Missing required fields (name, mobileNumber, panNumber)' });
                     return;
                 }
 
@@ -251,7 +251,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     address: result_address,
                     dob,
                     fileNumber: currentFileNumber,
-                    type: String(type).toUpperCase(),
+                    type: type ? String(type).toUpperCase() : (gstNumber ? 'BUSINESS' : 'INDIVIDUAL'),
                     customFields: row.customFields ? (typeof row.customFields === 'string' ? JSON.parse(row.customFields) : row.customFields) : []
                 });
             });
@@ -343,7 +343,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     const gstNumber = row.gstNumber || row.gst;
                     const tanNumber = row.tanNumber || row.tan;
 
-                    if (!name || !mobileNumber || !panNumber || !type) {
+                    if (!name || !mobileNumber || !panNumber) {
                         errors.push({ row: rowNumber, error: 'Missing required fields' })
                         return
                     }
@@ -376,7 +376,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         address: result_address,
                         dob,
                         fileNumber: currentFileNumber,
-                        type: String(type).toUpperCase(),
+                        type: type ? String(type).toUpperCase() : (gstNumber ? 'BUSINESS' : 'INDIVIDUAL'),
                         customFields: row.customFields ? JSON.parse(row.customFields) : []
                     })
                 })
