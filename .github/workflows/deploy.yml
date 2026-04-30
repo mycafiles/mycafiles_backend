@@ -1,15 +1,30 @@
 name: Deploy Backend
 
 on:
-  push:
-    branches: [master]
+  pull_request:
+    branches:
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    container:
+      image: node:20
 
     steps:
-      - name: Deploy Backend
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -25,6 +40,6 @@ jobs:
 
             npm install
 
-            pm2 reload backend || pm2 start npm --name backend -- start
+            pm2 reload mycafiles-api || pm2 start npm --name mycafiles-api -- start
 
             echo "✅ Backend Done"
