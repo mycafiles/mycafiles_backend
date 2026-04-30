@@ -17,6 +17,7 @@ app.set('trust proxy', 1);
 app.use(cors({
     origin: [
         'https://mycafiles.com',
+        'https://www.mycafiles.com',
         'https://client.mycafiles.com',
         'http://localhost:3001', // ✅ FIX
         'http://localhost:3000'
@@ -38,6 +39,9 @@ app.use(helmet({
                 "http://127.0.0.1:3001",
                 "http://127.0.0.1:3002",
                 "http://127.0.0.1:5173",
+                "https://mycafiles.com",
+                "https://www.mycafiles.com",
+                "https://client.mycafiles.com",
                 "https://mycafiles-client.vercel.app",
                 "https://mycafiles-next.vercel.app" // ✅ ADD THIS
             ]
@@ -92,11 +96,6 @@ const PORT = process.env.PORT || 5000;
 
 // 🚀 Start Server (Railway-safe)
 async function startServer() {
-    // Fallback for Railway default DATABASE_URL if DATABASE_URI isn't set
-    if (!process.env.DATABASE_URI && process.env.DATABASE_URL) {
-        process.env.DATABASE_URI = process.env.DATABASE_URL;
-    }
-
     try {
         await prisma.$connect();
         console.log('✅ Connected to PostgreSQL');
