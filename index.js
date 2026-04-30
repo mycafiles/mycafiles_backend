@@ -18,8 +18,8 @@ app.use(cors({
     origin: [
         'https://mycafiles.com',
         'https://client.mycafiles.com',
-        // 'http://localhost:3001', // ✅ FIX
-        // 'http://localhost:3000'
+        'http://localhost:3001', // ✅ FIX
+        'http://localhost:3000'
     ],
     credentials: true
 }));
