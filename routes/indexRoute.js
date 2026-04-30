@@ -1,0 +1,16 @@
+const express = require('express');
+const router = express.Router();
+
+router.use('/auth', require('./authRoutes'));
+router.use('/ca', require('./caRoutes'));
+router.use('/client', require('./clientRoute'));
+router.use('/drive', require('./driveRoutes'));
+router.use('/approvals', require('./approvalRoutes'));
+router.use('/activity', require('./activityRoutes'));
+router.use('/notifications', require('./notificationRoutes'));
+router.use('/dashboard', require('./dashboardRoutes'));
+router.use('/help', require('./helpRoutes'));
+// router.use('/banners', require('./bannerRoutes')); // Moved to ca_connect
+router.use('/mobile', require('./mobileRoutes'));
+
+module.exports = router;

@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URI")
+}
+
+model User {
+  id                    String         @id @default(cuid())
+  name                  String
+  email                 String         @unique
+  password              String
+  role                  UserRole       @default(CAADMIN)
+  status                UserStatus     @default(active)
+  phone                 String?
+  FRNno                 String?
+  resetPasswordToken    String?
+  resetPasswordExpire   DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  activities            ActivityLog[]
+  banners               Banner[]
+  clients               Client[]
+  receivedNotifications Notification[] @relation("ReceivedNotifications")
+  sentNotifications     Notification[] @relation("SentNotificationsUser")
+  folderOpens           FolderOpen[]   @relation("CaFolderOpens")
+  uniqueId              String?        @unique
+}
+
+model ActivityLog {
+  id         String         @id @default(cuid())
+  caId       String
+  action     ActivityAction
+  details    String
+  clientId   String?
+  clientName String?
+  docId      String?
+  folderId   String?
+  ipAddress  String?
+  timestamp  DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  ca         User           @relation(fields: [caId], references: [id])
+  client     Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  document   Document?      @relation(fields: [docId], references: [id])
+  folder     Folder?        @relation(fields: [folderId], references: [id])
+
+  @@index([caId, timestamp(sort: Desc)])
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  imageUrl  String
+  publicId  String
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  caId      String
+  createdAt DateTime @default(now())
+  ca        User     @relation(fields: [caId], references: [id])
+}
+
+model Client {
+  id                String         @id @default(cuid())
+  caId              String
+  name              String
+  mobileNumber      String
+  panNumber         String         @unique
+  dob               DateTime?
+  email             String?
+  address           String?
+  fileNumber        Int
+  type              ClientType
+  groupName         String?
+  customFields      Json?
+  tradeName         String?
+  gstNumber         String?        @unique
+  tanNumber         String?
+  gstId             String?
+  gstPassword       String?
+  isActive          Boolean        @default(true)
+  deviceId          String?
+  deviceStatus      DeviceStatus   @default(PENDING)
+  allowedDevices    String[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  activities        ActivityLog[]
+  ca                User           @relation(fields: [caId], references: [id])
+  documents         Document[]
+  folders           Folder[]
+  loginRequests     LoginRequest[]
+  refNotifications  Notification[] @relation("NotificationClient")
+  sentNotifications Notification[] @relation("SentNotifications")
+  folderOpens       FolderOpen[]   @relation("ClientFolderOpens")
+  uniqueId          String?        @unique
+
+  @@unique([caId, fileNumber])
+  @@index([mobileNumber, panNumber])
+}
+
+model Document {
+  id             String         @id @default(cuid())
+  clientId       String
+  folderId       String?
+  fileName       String
+  displayName    String?
+  fileUrl        String
+  cloudinaryId   String
+  fileType       String?
+  fileSize       Int
+  documentNumber String?
+  uploadedBy     UploadedBy
+  category       FileCategory   @default(GENERAL)
+  isDeleted      Boolean        @default(false)
+  deletedAt      DateTime?
+  deletedBy      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  activities     ActivityLog[]
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folder         Folder?        @relation(fields: [folderId], references: [id])
+  notifications  Notification[] @relation("NotificationDoc")
+
+  @@index([clientId])
+}
+
+model Folder {
+  id             String         @id @default(cuid())
+  name           String
+  clientId       String
+  category       FolderCategory
+  parentFolderId String?
+  path           Json?
+  isPredefined   Boolean        @default(false)
+  isDeleted      Boolean        @default(false)
+  deletedAt      DateTime?
+  deletedBy      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  lastOpenedAt   DateTime?
+  activities     ActivityLog[]
+  documents      Document[]
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parentFolder   Folder?        @relation("FolderHierarchy", fields: [parentFolderId], references: [id])
+  subFolders     Folder[]       @relation("FolderHierarchy")
+  notifications  Notification[] @relation("NotificationFolder")
+  folderOpens    FolderOpen[]
+
+  @@index([clientId, parentFolderId])
+}
+
+model FolderOpen {
+  id           String          @id @default(cuid())
+  folderId     String
+  caId         String?
+  clientId     String?
+  actorType    FolderOpenActor
+  lastOpenedAt DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  folder       Folder          @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  ca           User?           @relation("CaFolderOpens", fields: [caId], references: [id], onDelete: Cascade)
+  client       Client?         @relation("ClientFolderOpens", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, caId])
+  @@unique([folderId, clientId])
+  @@index([caId, lastOpenedAt(sort: Desc)])
+  @@index([clientId, lastOpenedAt(sort: Desc)])
+}
+
+model LoginRequest {
+  id          String        @id @default(cuid())
+  clientId    String
+  deviceId    String
+  deviceName  String?
+  status      RequestStatus @default(PENDING)
+  requestDate DateTime      @default(now())
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model HelpArticle {
+  id        String       @id @default(cuid())
+  title     String
+  content   String
+  category  String       @default("General")
+  audience  HelpAudience
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([audience])
+}
+
+model FAQ {
+  id        String       @id @default(cuid())
+  question  String
+  answer    String
+  audience  HelpAudience
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([audience])
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  recipientId  String?
+  clientId     String?
+  senderId     String?
+  senderUserId String?
+  title        String
+  message      String
+  type         NotificationType @default(GENERAL)
+  isRead       Boolean          @default(false)
+  docId        String?
+  folderId     String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  clientRef    Client?          @relation("NotificationClient", fields: [clientId], references: [id], onDelete: Cascade)
+  document     Document?        @relation("NotificationDoc", fields: [docId], references: [id])
+  folder       Folder?          @relation("NotificationFolder", fields: [folderId], references: [id])
+  recipient    User?            @relation("ReceivedNotifications", fields: [recipientId], references: [id])
+  sender       Client?          @relation("SentNotifications", fields: [senderId], references: [id], onDelete: Cascade)
+  senderUser   User?            @relation("SentNotificationsUser", fields: [senderUserId], references: [id])
+
+  @@index([recipientId, createdAt(sort: Desc)])
+  @@index([clientId, createdAt(sort: Desc)])
+}
+
+enum UserRole {
+  SUPERADMIN
+  CAADMIN
+  CLIENT
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+enum ActivityAction {
+  CREATE_CLIENT
+  UPDATE_CLIENT
+  DELETE_CLIENT
+  GENERATE_FOLDERS
+  UPLOAD_FILE
+  DELETE_FILE
+  RESTORE_FILE
+  PERMANENT_DELETE_FILE
+  CREATE_FOLDER
+  DELETE_FOLDER
+  RESTORE_FOLDER
+  PERMANENT_DELETE_FOLDER
+  LOGIN
+  CA_REGISTER
+  UPDATE_PROFILE
+  APPROVE_DEVICE
+  REJECT_DEVICE
+}
+
+enum ClientType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum DeviceStatus {
+  PENDING
+  APPROVED
+}
+
+enum UploadedBy {
+  CA
+  CUSTOMER
+}
+
+enum FileCategory {
+  GENERAL
+  GST
+  KYC
+  ITR
+  TDS
+}
+
+enum FolderCategory {
+  ITR
+  GST
+  TDS
+  KYC
+  GENERAL
+}
+
+enum FolderOpenActor {
+  CA
+  CLIENT
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum HelpAudience {
+  ca
+  client
+}
+
+enum NotificationType {
+  FILE_UPLOAD
+  DEVICE_APPROVAL
+  GENERAL
+}

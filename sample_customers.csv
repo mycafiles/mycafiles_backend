@@ -1,0 +1,5 @@
+name,mobileNumber,panNumber,type,customFields
+John Doe,9876543210,ABCDE1234F,Individual,[]
+Jane Smith,9876543211,WXYZR5678G,Company,[]
+Invalid PAN,9876543212,INVALIDPAN,Individual,[]
+Missing Fields,9876543213,,Individual,[]
