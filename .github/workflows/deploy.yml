@@ -8,19 +8,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    container:
-      image: node:20
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Install deps
-        run: npm ci
-
-      - name: Build project
-        run: npm run build
-
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -37,6 +26,6 @@ jobs:
 
             npm install
 
-            pm2 reload mycafiles-api || pm2 start npm --name mycafiles-api -- start
+            pm2 reload mycafiles-api || pm2 start index.js --name mycafiles-api
 
             echo "✅ Backend Done"
