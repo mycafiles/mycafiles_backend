@@ -81,7 +81,7 @@ app.use(
         // Disable default X-Frame-Options so only CSP frame-ancestors applies
         frameguard: false
     })
-));
+);
 
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
