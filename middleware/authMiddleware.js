@@ -3,6 +3,7 @@ const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const prisma = require('../config/prisma');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 const protect = catchAsync(async (req, res, next) => {
     let token;
@@ -14,7 +15,7 @@ const protect = catchAsync(async (req, res, next) => {
         token = req.headers.authorization.split(' ')[1];
     } else if (req.query.token) {
         token = req.query.token;
-        console.log("Token extracted from query params");
+        logger.debug("Token extracted from query params");
     }
 
     if (!token || token === 'null' || token === 'undefined') {
@@ -26,9 +27,9 @@ const protect = catchAsync(async (req, res, next) => {
     const secret = process.env.JWT_SECRET || 'fallback_secret';
     try {
         decoded = jwt.verify(token, secret);
-        console.log("Decoded Token:", decoded);
+        logger.debug("Decoded Token:", decoded);
     } catch (err) {
-        console.log(`[AUTH_ERR] Token verification failed. Secret begins with: ${secret.substring(0, 3)}...`);
+        logger.error(`[AUTH_ERR] Token verification failed: ${err.message}`);
         return next(new AppError('Invalid or expired token. Please log in again.', 401));
     }
 

@@ -136,14 +136,16 @@ exports.generateClientFolders = async (clientId, clientData) => {
                 const currentFYRootName = `FY - ${systemStartYear}-${systemStartYear + 1}`;
 
                 if (year === currentFYRootName) {
-                    // Current Year: Only create current month (Staggered)
+                    // Current Year: Create folders from April up to current month
                     const currentFYIndex = getCurrentFYIndex();
-                    const month = MONTHS[currentFYIndex];
-                    const monthFolder = await createFolderRecursive(month, clientId, 'GST', gstFolder.id, gstPath);
-                    const monthPath = [...gstPath, { id: monthFolder.id, name: monthFolder.name }];
+                    for (let i = 0; i <= currentFYIndex; i++) {
+                        const month = MONTHS[i];
+                        const monthFolder = await createFolderRecursive(month, clientId, 'GST', gstFolder.id, gstPath);
+                        const monthPath = [...gstPath, { id: monthFolder.id, name: monthFolder.name }];
 
-                    await createFolderRecursive('Sale Bill', clientId, 'GST', monthFolder.id, monthPath);
-                    await createFolderRecursive('Purchase Bill', clientId, 'GST', monthFolder.id, monthPath);
+                        await createFolderRecursive('Sale Bill', clientId, 'GST', monthFolder.id, monthPath);
+                        await createFolderRecursive('Purchase Bill', clientId, 'GST', monthFolder.id, monthPath);
+                    }
                 } else {
                     // Past Years: Create ALL 12 months
                     for (const month of MONTHS) {

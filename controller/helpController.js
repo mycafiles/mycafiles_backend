@@ -1,58 +1,39 @@
-const prisma = require('../config/prisma');
 const catchAsync = require('../utils/catchAsync');
-const AppError = require('../utils/AppError');
+const helpService = require('../services/helpService');
 
 // ARTICLES
 exports.getArticles = catchAsync(async (req, res, next) => {
-    const { audience } = req.query; // ca or client
-    const where = {};
-    if (audience) where.audience = audience;
-
-    const articles = await prisma.helpArticle.findMany({
-        where,
-        orderBy: { createdAt: 'desc' }
-    });
+    const { audience } = req.query;
+    const articles = await helpService.getArticles(audience);
 
     res.status(200).json({
         status: 'success',
-        data: articles.map(a => ({ ...a, _id: a.id }))
+        data: articles
     });
 });
 
 exports.createArticle = catchAsync(async (req, res, next) => {
-    const { title, content, category, audience } = req.body;
-
-    const article = await prisma.helpArticle.create({
-        data: { title, content, category, audience }
-    });
+    const article = await helpService.createArticle(req.body);
 
     res.status(201).json({
         status: 'success',
-        data: { ...article, _id: article.id }
+        data: article
     });
 });
 
 exports.updateArticle = catchAsync(async (req, res, next) => {
     const { id } = req.params;
-    const { title, content, category, audience } = req.body;
-
-    const article = await prisma.helpArticle.update({
-        where: { id },
-        data: { title, content, category, audience }
-    });
+    const article = await helpService.updateArticle(id, req.body);
 
     res.status(200).json({
         status: 'success',
-        data: { ...article, _id: article.id }
+        data: article
     });
 });
 
 exports.deleteArticle = catchAsync(async (req, res, next) => {
     const { id } = req.params;
-
-    await prisma.helpArticle.delete({
-        where: { id }
-    });
+    await helpService.deleteArticle(id);
 
     res.status(204).json({
         status: 'success',
@@ -62,72 +43,47 @@ exports.deleteArticle = catchAsync(async (req, res, next) => {
 
 exports.getArticleById = catchAsync(async (req, res, next) => {
     const { id } = req.params;
-
-    const article = await prisma.helpArticle.findUnique({
-        where: { id }
-    });
-
-    if (!article) {
-        return next(new AppError('No article found with that ID', 404));
-    }
+    const article = await helpService.getArticleById(id);
 
     res.status(200).json({
         status: 'success',
-        data: { ...article, _id: article.id }
+        data: article
     });
 });
 
 // FAQS
 exports.getFAQs = catchAsync(async (req, res, next) => {
     const { audience } = req.query;
-    const where = {};
-    if (audience) where.audience = audience;
-
-    const faqs = await prisma.fAQ.findMany({
-        where,
-        orderBy: { order: 'asc' }
-    });
+    const faqs = await helpService.getFaqs(audience);
 
     res.status(200).json({
         status: 'success',
-        data: faqs.map(f => ({ ...f, _id: f.id }))
+        data: faqs
     });
 });
 
 exports.createFAQ = catchAsync(async (req, res, next) => {
-    const { question, answer, audience, order } = req.body;
-
-    const faq = await prisma.fAQ.create({
-        data: { question, answer, audience, order: order || 0 }
-    });
+    const faq = await helpService.createFaq(req.body);
 
     res.status(201).json({
         status: 'success',
-        data: { ...faq, _id: faq.id }
+        data: faq
     });
 });
 
 exports.updateFAQ = catchAsync(async (req, res, next) => {
     const { id } = req.params;
-    const { question, answer, audience, order } = req.body;
-
-    const faq = await prisma.fAQ.update({
-        where: { id },
-        data: { question, answer, audience, order }
-    });
+    const faq = await helpService.updateFaq(id, req.body);
 
     res.status(200).json({
         status: 'success',
-        data: { ...faq, _id: faq.id }
+        data: faq
     });
 });
 
 exports.deleteFAQ = catchAsync(async (req, res, next) => {
     const { id } = req.params;
-
-    await prisma.fAQ.delete({
-        where: { id }
-    });
+    await helpService.deleteFaq(id);
 
     res.status(204).json({
         status: 'success',

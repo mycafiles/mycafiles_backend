@@ -13,6 +13,7 @@ const { logActivity } = require('../services/activityService');
 const { sendNotification } = require('../services/notificationService');
 const sendEmail = require('../services/emailService');
 const { createBucket } = require('../services/storageService');
+const authService = require('../services/authService');
 
 const generateToken = (id, role) => {
     return jwt.sign({ id, role }, process.env.JWT_SECRET || 'fallback_secret', {
@@ -95,23 +96,10 @@ exports.login = async (req, res) => {
 exports.caLogin = async (req, res) => {
     try {
         const { email, password, role } = req.body;
-        console.log(email, password, role);
-
-        const user = await prisma.user.findUnique({ where: { email } });
-        console.log("user", user);
-
-        if (!user) {
-            return res.status(401).json({ message: 'Invalid email or password' });
-        }
-
-        if (user.role !== role) {
-            logger.info(`User ${user.email} is not a ${role}`);
-            return res.status(401).json({ message: 'Invalid email or password' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-
-        if (user && isMatch) {
+        logger.debug(`${email}, ${password}, ${role}`);
+        const result = await authService.loginCA(email, password, role);
+        if (result.ok) {
+            const user = result.user;
             res.json({
                 _id: user.id,
                 name: user.name,
@@ -120,10 +108,10 @@ exports.caLogin = async (req, res) => {
                 token: generateToken(user.id, user.role),
             });
         } else {
-            res.status(401).json({ message: 'Invalid email or password' });
+            res.status(result.code).json({ message: result.message });
         }
     } catch (error) {
-        console.log(error);
+        logger.error(error.message);
         res.status(500).json({ message: error.message });
     }
 };
@@ -132,7 +120,7 @@ exports.caLogin = async (req, res) => {
 // @route   POST /api/auth/client-login
 // @access  Public
 exports.clientLogin = async (req, res) => {
-    console.log("req.body", req.body);
+    logger.debug(`req.body: ${JSON.stringify(req.body)}`);
     try {
         const { mobileNumber, panNumber } = req.body;
         const deviceId = req.headers['x-device-id'];
@@ -141,56 +129,16 @@ exports.clientLogin = async (req, res) => {
             return res.status(400).json({ message: 'Mobile Number and PAN are required' });
         }
 
-        const client = await prisma.client.findFirst({
-            where: {
-                mobileNumber,
-                panNumber
-            }
+        const result = await authService.loginClientByMobilePan({
+            mobileNumber,
+            panNumber,
+            deviceId,
+            tokenFactory: generateToken
         });
-
-        if (!client) {
-            return res.status(401).json({ message: 'Invalid Mobile Number or PAN' });
+        if (!result.ok) {
+            return res.status(result.code).json({ message: result.message });
         }
-
-        if (!client.isActive) {
-            return res.status(403).json({ message: 'Account is inactive. Please contact support.' });
-        }
-
-        // Handle Device ID logic if provided
-        if (deviceId) {
-            if (!client.deviceId) {
-                await prisma.client.update({
-                    where: { id: client.id },
-                    data: { deviceId, deviceStatus: 'PENDING' }
-                });
-                return res.status(403).json({ message: 'Device approval pending. Please contact your CA.' });
-            }
-
-            if (client.deviceId !== deviceId) {
-                return res.status(403).json({ message: 'This account is linked to another device.' });
-            }
-
-            if (client.deviceStatus !== 'APPROVED') {
-                return res.status(403).json({ message: 'Device approval pending.' });
-            }
-        }
-
-        res.json({
-            _id: client.id,
-            name: client.name,
-            email: client.email,
-            mobileNumber: client.mobileNumber,
-            panNumber: client.panNumber,
-            address: client.address,
-            tradeName: client.tradeName,
-            gstNumber: client.gstNumber,
-            tanNumber: client.tanNumber,
-            gstId: client.gstId,
-            gstPassword: client.gstPassword,
-            role: 'CUSTOMER',
-            type: client.type,
-            token: generateToken(client.id, 'CUSTOMER'),
-        });
+        res.json(result.payload);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -207,27 +155,15 @@ exports.mobileLogin = async (req, res) => {
             return res.status(400).json({ message: 'Mobile Number and PAN are required' });
         }
 
-        const client = await prisma.client.findFirst({
-            where: {
-                mobileNumber,
-                panNumber
-            }
+        const result = await authService.loginClientBasic({
+            mobileNumber,
+            panNumber,
+            tokenFactory: generateToken
         });
-
-        if (!client) {
-            return res.status(401).json({ message: 'Invalid Mobile Number or PAN' });
+        if (!result.ok) {
+            return res.status(result.code).json({ message: result.message });
         }
-
-        if (!client.isActive) {
-            return res.status(403).json({ message: 'Account is inactive. Please contact support.' });
-        }
-
-        res.json({
-            _id: client.id,
-            name: client.name,
-            role: 'CUSTOMER',
-            token: generateToken(client.id, 'CUSTOMER'),
-        });
+        res.json(result.payload);
 
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -267,33 +203,13 @@ exports.deviceCheck = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
     try {
-        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-
-        if (user) {
-            const updatedUser = await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    name: req.body.name || user.name,
-                    phone: req.body.phone || user.phone,
-                    FRNno: req.body.FRNno || user.FRNno,
-                    password: req.body.password ? await bcrypt.hash(req.body.password, await bcrypt.genSalt(10)) : undefined
-                }
-            });
-
-            res.json({
-                _id: updatedUser.id,
-                name: updatedUser.name,
-                email: updatedUser.email,
-                role: updatedUser.role,
-                phone: updatedUser.phone,
-                FRNno: updatedUser.FRNno,
-                token: generateToken(updatedUser.id, updatedUser.role),
-            });
-
+        const updatedUserPayload = await authService.updateCaProfile(req.user.id, req.body, generateToken);
+        if (updatedUserPayload) {
+            res.json(updatedUserPayload);
             await logActivity({
-                caId: updatedUser.id,
+                caId: updatedUserPayload._id,
                 action: 'UPDATE_PROFILE',
-                details: `Profile updated for CA: ${updatedUser.name}`
+                details: `Profile updated for CA: ${updatedUserPayload.name}`
             });
         } else {
             res.status(404).json({ message: 'User not found' });
@@ -311,45 +227,11 @@ exports.updateClientProfileMe = async (req, res) => {
         if (req.user.role !== 'CUSTOMER') {
             return res.status(403).json({ message: 'Only clients can use this endpoint' });
         }
-
-        const client = await prisma.client.findUnique({ where: { id: req.user.id } });
-
-        if (!client) {
+        const payload = await authService.updateClientSelfProfile(req.user.id, req.body, generateToken);
+        if (!payload) {
             return res.status(404).json({ message: 'Client not found' });
         }
-
-        const updatedClient = await prisma.client.update({
-            where: { id: client.id },
-            data: {
-                name: req.body.name || client.name,
-                email: req.body.email || client.email,
-                mobileNumber: req.body.mobileNumber || client.mobileNumber,
-                address: req.body.address || client.address,
-                tradeName: req.body.tradeName || client.tradeName,
-                gstNumber: req.body.gstNumber || client.gstNumber,
-                tanNumber: req.body.tanNumber || client.tanNumber,
-                gstId: req.body.gstId || client.gstId,
-                gstPassword: req.body.gstPassword || client.gstPassword,
-            }
-        });
-
-        res.json({
-            status: 'success',
-            _id: updatedClient.id,
-            name: updatedClient.name,
-            email: updatedClient.email,
-            mobileNumber: updatedClient.mobileNumber,
-            panNumber: updatedClient.panNumber,
-            address: updatedClient.address,
-            tradeName: updatedClient.tradeName,
-            gstNumber: updatedClient.gstNumber,
-            tanNumber: updatedClient.tanNumber,
-            gstId: updatedClient.gstId,
-            gstPassword: updatedClient.gstPassword,
-            role: 'CUSTOMER',
-            type: updatedClient.type,
-            token: generateToken(updatedClient.id, 'CUSTOMER'),
-        });
+        res.json(payload);
 
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -408,7 +290,7 @@ exports.forgotPassword = async (req, res) => {
 
             res.status(200).json({ status: 'success', message: 'Email sent' });
         } catch (error) {
-            console.log(error);
+            logger.error(error.message);
             await User.findByIdAndUpdate(user.id, {
                 resetPasswordToken: null,
                 resetPasswordExpire: null
@@ -469,29 +351,14 @@ exports.getMyCA = async (req, res) => {
         if (req.user.role !== 'CUSTOMER') {
             return res.status(403).json({ message: 'Only clients can fetch their CA details' });
         }
-
-        const client = await prisma.client.findUnique({
-            where: { id: req.user.id },
-            include: {
-                ca: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        phone: true,
-                        FRNno: true
-                    }
-                }
-            }
-        });
-
-        if (!client || !client.ca) {
+        const ca = await authService.getMyCa(req.user.id);
+        if (!ca) {
             return res.status(404).json({ message: 'CA details not found' });
         }
 
         res.json({
             status: 'success',
-            data: client.ca
+            data: ca
         });
 
     } catch (error) {
@@ -513,32 +380,9 @@ exports.logout = async (req, res) => {
 // @access  Private (Client only)
 exports.getGroupMembers = async (req, res) => {
     try {
-        const currentClient = await prisma.client.findFirst({
-            where: { id: req.user.id }
-        });
+        const members = await authService.getGroupMembers(req.user.id);
 
-        console.log("currentClient", currentClient);
-
-        if (!currentClient || !currentClient.groupName) {
-            return res.json([]);
-        }
-
-        const members = await prisma.client.findMany({
-            where: {
-                groupName: currentClient.groupName,
-                caId: currentClient.caId,
-                id: { not: currentClient.id },
-                isActive: true
-            },
-            select: {
-                id: true,
-                name: true,
-                type: true,
-                fileNumber: true
-            }
-        });
-
-        console.log("members", members);
+        logger.debug(`members: ${JSON.stringify(members)}`);
         return res.status(200).json({
             success: true,
             data: members
@@ -554,34 +398,11 @@ exports.getGroupMembers = async (req, res) => {
 exports.switchClient = async (req, res) => {
     try {
         const { targetClientId } = req.body;
-        const currentClient = await prisma.client.findFirst({
-            where: { id: req.user.id }
-        });
-
-        if (!currentClient || !currentClient.groupName) {
-            return res.status(403).json({ message: 'Not authorized for group switching' });
+        const result = await authService.switchGroupClient(req.user.id, targetClientId, generateToken);
+        if (!result.ok) {
+            return res.status(result.code).json({ message: result.message });
         }
-
-        const targetClient = await prisma.client.findFirst({
-            where: {
-                id: targetClientId,
-                groupName: currentClient.groupName,
-                caId: currentClient.caId,
-                isActive: true
-            }
-        });
-
-        if (!targetClient) {
-            return res.status(404).json({ message: 'Target client not found in your group' });
-        }
-
-        res.json({
-            _id: targetClient.id,
-            name: targetClient.name,
-            role: 'CUSTOMER',
-            type: targetClient.type,
-            token: generateToken(targetClient.id, 'CUSTOMER'),
-        });
+        res.json(result.payload);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -618,18 +439,8 @@ exports.checkClientExists = async (req, res) => {
         if (!mobileNumber) {
             return res.status(400).json({ message: 'Mobile Number is required' });
         }
-
-        const client = await prisma.client.findFirst({
-            where: {
-                mobileNumber
-            }
-        });
-
-        if (client) {
-            return res.json({ exists: true, isActive: client.isActive });
-        } else {
-            return res.json({ exists: false });
-        }
+        const result = await authService.checkClientExists(mobileNumber);
+        return res.json(result);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -654,7 +465,7 @@ exports.firebaseMobileLogin = async (req, res) => {
         try {
             decodedToken = await admin.auth().verifyIdToken(firebaseToken);
         } catch (e) {
-            console.log("Firebase Auth failed", e);
+            logger.error(`Firebase Auth failed: ${e.message}`);
             return res.status(401).json({ message: 'Invalid Firebase Auth Token' });
         }
 
@@ -787,7 +598,7 @@ exports.googleCallback = async (req, res) => {
         res.redirect(`${process.env.FRONTEND_URL}/login?token=${token}`);
 
     } catch (error) {
-        console.error("Google Auth Error", error);
+        logger.error(`Google Auth Error: ${error.message}`);
         res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
     }
 };

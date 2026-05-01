@@ -11,6 +11,7 @@ const { getFileProxyUrl } = require('../utils/urlHelper');
 const { resolveContentType } = require('../utils/contentTypeHelper');
 
 const prisma = require('../config/prisma');
+const logger = require('../utils/logger');
 const isCustomerUser = (user) => String(user?.role || '').toUpperCase() === 'CUSTOMER';
 
 const normalizeFileCategory = (cat) => {
@@ -83,7 +84,7 @@ exports.getFinancialYears = async (req, res) => {
     try {
         const financialYears = getFinancialYears();
 
-        console.log("financialYears", financialYears);
+        logger.debug(`financialYears: ${JSON.stringify(financialYears)}`);
         res.json({
             status: 'success',
             financialYears
@@ -155,7 +156,7 @@ exports.getDocuments = async (req, res) => {
             }))
         });
     } catch (err) {
-        console.error('getDocuments Error:', err);
+        logger.error(`getDocuments Error: ${err.message}`);
         res.status(500).json({ status: 'error', message: 'Failed to fetch documents' });
     }
 };
@@ -261,7 +262,7 @@ exports.uploadFile = async (req, res) => {
                     try {
                         await storageDelete(bucketName, oldDoc.cloudinaryId);
                     } catch (e) {
-                        console.error("Old file deletion failed", e);
+                        logger.error(`Old file deletion failed: ${e.message}`);
                     }
                 }
 
@@ -348,7 +349,7 @@ exports.uploadFile = async (req, res) => {
         });
 
     } catch (err) {
-        console.log(err);
+        logger.error(`uploadFile Error: ${err.message}`);
         res.status(500).json({ error: 'Upload failed' });
     }
 };
@@ -450,7 +451,7 @@ exports.deleteFile = async (req, res) => {
                 try {
                     await storageDelete(`ca-${clientDoc.caId}`, file.cloudinaryId);
                 } catch (e) {
-                    console.error("KYC file deletion failed", e);
+                    logger.error(`KYC file deletion failed: ${e.message}`);
                 }
             }
 
@@ -709,7 +710,7 @@ exports.permanentDelete = async (req, res) => {
                 try {
                     await deleteFile(bucketName, fileKey);
                 } catch (e) {
-                    console.error("MinIO delete failed, but proceeding to delete from DB", e);
+                    logger.error(`MinIO delete failed, but proceeding to delete from DB: ${e.message}`);
                 }
             }
 
@@ -843,7 +844,7 @@ exports.updateItem = async (req, res) => {
         }
 
     } catch (err) {
-        console.error(err);
+        logger.error(`updateItem Error: ${err.message}`);
         res.status(500).json({ error: 'Update failed' });
     }
 };
@@ -895,7 +896,7 @@ exports.getFolderContents = async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
+        logger.error(`getFolderContents Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to fetch folder contents' });
     }
 };
@@ -933,7 +934,7 @@ exports.downloadFile = async (req, res) => {
         dataStream.pipe(res);
 
     } catch (err) {
-        console.error('Download Error Detailed:', err);
+        logger.error(`Download Error Detailed: ${err.message}`);
         res.status(500).json({ error: 'Download failed', details: err.message });
     }
 };
@@ -1004,7 +1005,7 @@ exports.viewFile = async (req, res) => {
         dataStream.pipe(res);
 
     } catch (err) {
-        console.error('View Error:', err);
+        logger.error(`View Error: ${err.message}`);
         res.status(500).json({ error: 'View failed', details: err.message });
     }
 };
@@ -1076,7 +1077,7 @@ exports.getBinByCA = async (req, res) => {
             limit: parseInt(limit)
         });
     } catch (err) {
-        console.error(err);
+        logger.error(`getBinByCA Error: ${err.message}`);
         res.status(500).json({ status: 'error', message: 'Failed to fetch bin contents' });
     }
 };
@@ -1089,6 +1090,11 @@ exports.getClientDrive = async (req, res) => {
         const [folders, files] = await Promise.all([
             prisma.folder.findMany({
                 where: { clientId, isDeleted: false },
+                include: {
+                    folderOpens: {
+                        where: { clientId: clientId }
+                    }
+                },
                 orderBy: { name: 'asc' }
             }),
             prisma.document.findMany({
@@ -1118,7 +1124,11 @@ exports.getClientDrive = async (req, res) => {
             };
         });
 
-        const formattedFolders = folders.map(f => ({ ...f, _id: f.id }));
+        const formattedFolders = folders.map(f => ({
+            ...f,
+            _id: f.id,
+            lastOpenedAt: (f.folderOpens && f.folderOpens[0]) ? f.folderOpens[0].lastOpenedAt : f.lastOpenedAt
+        }));
 
         // ── ORGANIZE DATA INTO HIERARCHY ──
         const organized = {};
@@ -1163,9 +1173,9 @@ exports.getClientDrive = async (req, res) => {
                                 .filter(sf => sf.parentFolderId === f.id)
                                 .sort(compareFoldersByFiscalSequence)
                                 .map(sf => ({
-                                ...sf,
-                                files: formattedFiles.filter(file => file.folderId === sf.id)
-                            })),
+                                    ...sf,
+                                    files: formattedFiles.filter(file => file.folderId === sf.id)
+                                })),
                             files: formattedFiles.filter(file => file.folderId === f.id)
                         })),
                         files: formattedFiles.filter(file => file.folderId === catRoot.id)
@@ -1193,7 +1203,7 @@ exports.getClientDrive = async (req, res) => {
         });
 
     } catch (err) {
-        console.error('getClientDrive Error:', err);
+        logger.error(`getClientDrive Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to retrieve drive data' });
     }
 };
@@ -1217,7 +1227,7 @@ exports.restoreItem = async (req, res) => {
 
         res.json({ status: 'success', message: 'Item restored successfully' });
     } catch (err) {
-        console.error(err);
+        logger.error(`restoreItem Error: ${err.message}`);
         res.status(500).json({ status: 'error', message: 'Failed to restore item' });
     }
 };
@@ -1239,7 +1249,7 @@ exports.permanentDelete = async (req, res) => {
 
         res.json({ status: 'success', message: 'Item permanently deleted' });
     } catch (err) {
-        console.error(err);
+        logger.error(`permanentDelete Error: ${err.message}`);
         res.status(500).json({ status: 'error', message: 'Failed to delete item' });
     }
 };
@@ -1294,7 +1304,7 @@ exports.trackFolderOpen = async (req, res) => {
 
         res.json({ success: true, folder: { ...folder, lastOpenedAt: folderOpen.lastOpenedAt } });
     } catch (err) {
-        console.error(err);
+        logger.error(`trackFolderOpen Error: ${err.message}`);
         res.status(500).json({ error: 'Failed to track folder open' });
     }
 };
@@ -1303,10 +1313,10 @@ exports.trackFolderOpen = async (req, res) => {
 exports.downloadAllZip = async (req, res) => {
     try {
         const clientId = req.user.id;
-        console.log(`[ZIP_REQUEST] Client: ${clientId}, Query:`, req.query);
+        logger.debug(`[ZIP_REQUEST] Client: ${clientId}, Query: ${JSON.stringify(req.query)}`);
         const { category, year } = req.query;
 
-        console.log(`[ZIP_START] Client: ${clientId}, Category: ${category}, Year: ${year}`);
+        logger.debug(`[ZIP_START] Client: ${clientId}, Category: ${category}, Year: ${year}`);
 
         const where = {
             clientId: clientId,
@@ -1342,7 +1352,7 @@ exports.downloadAllZip = async (req, res) => {
 
                 where.folderId = { in: descendantFolderIds };
             } else {
-                console.log(`[ZIP_ERROR] No year folders found for ${year}`);
+                logger.error(`[ZIP_ERROR] No year folders found for ${year}`);
                 return res.status(404).json({ error: `No data found for financial year ${year}` });
             }
         }
@@ -1354,7 +1364,7 @@ exports.downloadAllZip = async (req, res) => {
             }
         });
 
-        console.log(`[ZIP_INFO] Found ${documents.length} documents for client ${clientId}`);
+        logger.info(`[ZIP_INFO] Found ${documents.length} documents for client ${clientId}`);
 
         if (documents.length === 0) {
             return res.status(404).json({ error: 'No files found to download' });
@@ -1366,7 +1376,7 @@ exports.downloadAllZip = async (req, res) => {
         });
 
         if (!clientDoc || !clientDoc.caId) {
-            console.log(`[ZIP_ERROR] Client or CA not found for ID: ${clientId}`);
+            logger.error(`[ZIP_ERROR] Client or CA not found for ID: ${clientId}`);
             return res.status(404).json({ error: 'Client/CA not found' });
         }
 
@@ -1381,7 +1391,7 @@ exports.downloadAllZip = async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
 
         zip.on('error', (err) => {
-            console.error('[ZIP_ARCHIVE_ERROR]', err);
+            logger.error(`[ZIP_ARCHIVE_ERROR]: ${err.message}`);
         });
 
         zip.pipe(res);
@@ -1389,11 +1399,11 @@ exports.downloadAllZip = async (req, res) => {
         for (const doc of documents) {
             try {
                 if (!doc.cloudinaryId) {
-                    console.log(`[ZIP_SKIP] Skipping file without storage path: ${doc.fileName}`);
+                    logger.warn(`[ZIP_SKIP] Skipping file without storage path: ${doc.fileName}`);
                     continue;
                 }
 
-                console.log(`[ZIP_ADD] Adding: ${doc.fileName} from bucket: ${bucketName}`);
+                logger.debug(`[ZIP_ADD] Adding: ${doc.fileName} from bucket: ${bucketName}`);
                 const stream = await getObjectStream(bucketName, doc.cloudinaryId);
 
                 let zipPath = '';
@@ -1404,15 +1414,15 @@ exports.downloadAllZip = async (req, res) => {
 
                 zip.append(stream, { name: `${zipPath}${doc.fileName}` });
             } catch (e) {
-                console.error(`[ZIP_FILE_ERROR] Failed to stream ${doc.fileName}:`, e.message);
+                logger.error(`[ZIP_FILE_ERROR] Failed to stream ${doc.fileName}: ${e.message}`);
             }
         }
 
-        console.log(`[ZIP_FINISH] Finalizing zip for ${clientId}`);
+        logger.info(`[ZIP_FINISH] Finalizing zip for ${clientId}`);
         await zip.finalize();
 
     } catch (err) {
-        console.error('[ZIP_FATAL_ERROR]', err);
+        logger.error(`[ZIP_FATAL_ERROR]: ${err.message}`);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Internal Server Error during zip generation' });
         }
@@ -1486,7 +1496,7 @@ exports.getStorageStats = async (req, res) => {
             ]
         });
     } catch (err) {
-        console.error('getStorageStats Error:', err);
+        logger.error(`getStorageStats Error: ${err.message}`);
         res.status(500).json({ error: err.message });
     }
 };

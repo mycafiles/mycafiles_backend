@@ -14,48 +14,15 @@ const { logActivity } = require('../services/activityService');
 const XLSX = require('xlsx');
 const { getFileProxyUrl } = require('../utils/urlHelper');
 const { generate8DigitUniqueId } = require('../utils/idGenerator');
+const clientRepository = require('../repositories/clientRepository');
+const clientService = require('../services/clientService');
 
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
-
-const getFiscalMonthSequence = (name) => {
-    const match = String(name || '').trim().match(/^(\d{1,2})-/);
-    if (!match) return null;
-    const monthNumber = parseInt(match[1], 10);
-    return monthNumber >= 1 && monthNumber <= 12 ? monthNumber : null;
-};
-
-const getFolderPriority = (name) => {
-    const lowerName = String(name || '').toLowerCase();
-    if (lowerName.includes('sale')) return 1;
-    if (lowerName.includes('purchase')) return 2;
-    if (lowerName.includes('income')) return 3;
-    if (lowerName.includes('bank')) return 4;
-    return 99;
-};
-
-const compareFoldersByFiscalSequence = (a, b) => {
-    const aSequence = getFiscalMonthSequence(a?.name);
-    const bSequence = getFiscalMonthSequence(b?.name);
-
-    if (aSequence !== null || bSequence !== null) {
-        if (aSequence === null) return 1;
-        if (bSequence === null) return -1;
-        if (aSequence !== bSequence) return aSequence - bSequence;
-    }
-
-    const priorityDiff = getFolderPriority(a?.name) - getFolderPriority(b?.name);
-    if (priorityDiff !== 0) return priorityDiff;
-
-    return String(a?.name || '').localeCompare(String(b?.name || ''), undefined, {
-        numeric: true,
-        sensitivity: 'base'
-    });
-};
 
 exports.createClient = catchAsync(async (req, res, next) => {
     const { name, mobileNumber, panNumber, email, dob, address, type, tradeName, gstNumber, tanNumber, gstId, gstPassword, groupName, customFields } = req.body
     const caId = req.user.id // From auth middleware
-    console.log(req.user.id);
+    logger.debug(`User ID: ${caId}`);
 
     // ✅ GST validation
     if (gstNumber && panNumber) {
@@ -65,20 +32,20 @@ exports.createClient = catchAsync(async (req, res, next) => {
     }
 
     // ✅ PAN duplicate check
-    const existingClient = await Client.findOne({ panNumber });
+    const existingClient = await clientRepository.findClientByPan(panNumber);
     if (existingClient) {
         return next(new AppError('Client with this PAN already exists', 400));
     }
 
     // ✅ File number
-    const lastClient = await Client.findOne({ caId }, { sort: { fileNumber: 'desc' } });
+    const lastClient = await clientRepository.findLastClientByCa(caId);
     const fileNumber = lastClient && lastClient.fileNumber ? lastClient.fileNumber + 1 : 1;
 
     const uniqueId = await generate8DigitUniqueId('client');
 
     let client;
     try {
-        client = await Client.create({
+        client = await clientRepository.createClient({
             caId,
             name,
             mobileNumber,
@@ -135,14 +102,8 @@ exports.createClient = catchAsync(async (req, res, next) => {
 // @access  Private (CA)
 exports.viewClients = catchAsync(async (req, res, next) => {
     const caId = req.user.id;
-    const clients = await prisma.client.findMany({
-        where: { caId }
-    });
-
-    const formattedClients = clients.map(c => ({
-        ...c,
-        _id: c.id
-    }));
+    const clients = await clientRepository.findClientsByCa(caId);
+    const formattedClients = clientService.mapClientListWithLegacyId(clients);
 
     res.status(200).json({
         status: 'success',
@@ -158,37 +119,12 @@ exports.getGSTClients = catchAsync(async (req, res, next) => {
     const caId = req.user.id;
     const bucketName = `ca-${caId}`;
 
-    const clients = await prisma.client.findMany({
-        where: {
-            caId,
-            gstNumber: { not: null },
-            NOT: { gstNumber: "" }
-        },
-        include: {
-            folders: { where: { isDeleted: false } },
-            documents: { where: { isDeleted: false } }
-        }
+    const clients = await clientRepository.findCategorizedClients({
+        caId,
+        gstNumber: { not: null },
+        NOT: { gstNumber: "" }
     });
-
-    const formattedClients = await Promise.all(clients.map(async (client) => {
-        const { folders, documents, ...clientData } = client;
-
-        const formattedFolders = folders.map(f => ({ ...f, _id: f.id }));
-        const signedFiles = documents.map((file) => {
-            return {
-                ...file,
-                _id: file.id,
-                fileUrl: file.cloudinaryId ? getFileProxyUrl(req, file.id) : ""
-            };
-        });
-
-        return {
-            ...clientData,
-            _id: client.id,
-            folders: formattedFolders,
-            files: signedFiles
-        };
-    }));
+    const formattedClients = clientService.mapCategorizedClients(req, clients);
 
     res.status(200).json({
         status: 'success',
@@ -204,36 +140,11 @@ exports.getITRClients = catchAsync(async (req, res, next) => {
     const caId = req.user.id;
     const bucketName = `ca-${caId}`;
 
-    const clients = await prisma.client.findMany({
-        where: {
-            caId: caId,
-            NOT: { panNumber: "" }
-        },
-        include: {
-            folders: { where: { isDeleted: false } },
-            documents: { where: { isDeleted: false } }
-        }
+    const clients = await clientRepository.findCategorizedClients({
+        caId: caId,
+        NOT: { panNumber: "" }
     });
-
-    const formattedClients = await Promise.all(clients.map(async (client) => {
-        const { folders, documents, ...clientData } = client;
-
-        const formattedFolders = folders.map(f => ({ ...f, _id: f.id }));
-        const signedFiles = documents.map((file) => {
-            return {
-                ...file,
-                _id: file.id,
-                fileUrl: file.cloudinaryId ? getFileProxyUrl(req, file.id) : ""
-            };
-        });
-
-        return {
-            ...clientData,
-            _id: client.id,
-            folders: formattedFolders,
-            files: signedFiles
-        };
-    }));
+    const formattedClients = clientService.mapCategorizedClients(req, clients);
 
     res.status(200).json({
         status: 'success',
@@ -249,37 +160,12 @@ exports.getTDSClients = catchAsync(async (req, res, next) => {
     const caId = req.user.id;
     const bucketName = `ca-${caId}`;
 
-    const clients = await prisma.client.findMany({
-        where: {
-            caId,
-            tanNumber: { not: null },
-            NOT: { tanNumber: "" }
-        },
-        include: {
-            folders: { where: { isDeleted: false } },
-            documents: { where: { isDeleted: false } }
-        }
+    const clients = await clientRepository.findCategorizedClients({
+        caId,
+        tanNumber: { not: null },
+        NOT: { tanNumber: "" }
     });
-
-    const formattedClients = await Promise.all(clients.map(async (client) => {
-        const { folders, documents, ...clientData } = client;
-
-        const formattedFolders = folders.map(f => ({ ...f, _id: f.id }));
-        const signedFiles = documents.map((file) => {
-            return {
-                ...file,
-                _id: file.id,
-                fileUrl: file.cloudinaryId ? getFileProxyUrl(req, file.id) : ""
-            };
-        });
-
-        return {
-            ...clientData,
-            _id: client.id,
-            folders: formattedFolders,
-            files: signedFiles
-        };
-    }));
+    const formattedClients = clientService.mapCategorizedClients(req, clients);
 
     res.status(200).json({
         status: 'success',
@@ -294,43 +180,18 @@ exports.getTDSClients = catchAsync(async (req, res, next) => {
 exports.getKYCClients = catchAsync(async (req, res, next) => {
     const caId = req.user.id;
 
-    const clients = await prisma.client.findMany({
-        where: {
-            caId,
-            documents: {
-                some: {
-                    category: 'KYC',
-                    isDeleted: false,
-                    cloudinaryId: { not: "" },
-                    fileUrl: { not: "" }
-                }
+    const clients = await clientRepository.findCategorizedClients({
+        caId,
+        documents: {
+            some: {
+                category: 'KYC',
+                isDeleted: false,
+                cloudinaryId: { not: "" },
+                fileUrl: { not: "" }
             }
-        },
-        include: {
-            folders: { where: { isDeleted: false } },
-            documents: { where: { isDeleted: false } }
         }
     });
-
-    const formattedClients = await Promise.all(clients.map(async (client) => {
-        const { folders, documents, ...clientData } = client;
-
-        const formattedFolders = folders.map(f => ({ ...f, _id: f.id }));
-        const signedFiles = documents.map((file) => {
-            return {
-                ...file,
-                _id: file.id,
-                fileUrl: file.cloudinaryId ? getFileProxyUrl(req, file.id) : ""
-            };
-        });
-
-        return {
-            ...clientData,
-            _id: client.id,
-            folders: formattedFolders,
-            files: signedFiles
-        };
-    }));
+    const formattedClients = clientService.mapCategorizedClients(req, clients);
 
     res.status(200).json({
         status: 'success',
@@ -344,16 +205,13 @@ exports.getKYCClients = catchAsync(async (req, res, next) => {
 // @access  Private (CA or Client)
 exports.getClientsByGroupName = catchAsync(async (req, res, next) => {
     let { groupName } = req.params;
-    console.log(groupName, "groupName")
+    logger.debug(`groupName: ${groupName}`);
 
     // If no groupName in params, we could also check if the current user is a Client 
     // and use their specific groupName if they belong to one
     if (!groupName || groupName === "mygroup") {
         if (req.user.role === 'CUSTOMER') {
-            const client = await prisma.client.findUnique({
-                where: { id: req.user.id },
-                select: { groupName: true }
-            });
+            const client = await clientRepository.findClientGroupName(req.user.id);
             groupName = client?.groupName;
         }
     }
@@ -366,11 +224,7 @@ exports.getClientsByGroupName = catchAsync(async (req, res, next) => {
         });
     }
 
-    const clients = await prisma.client.findMany({
-        where: {
-            groupName: groupName
-        }
-    });
+    const clients = await clientRepository.findClientsByGroupName(groupName);
 
     const formattedClients = clients.map(c => ({
         ...c,
@@ -389,73 +243,16 @@ exports.getClientsByGroupName = catchAsync(async (req, res, next) => {
 exports.getClientData = async (req, res) => {
     try {
         const { clientId } = req.params;
-        const [client, folders, files] = await Promise.all([
-            prisma.client.findUnique({
-                where: { id: clientId }
-            }),
-            prisma.folder.findMany({
-                where: { clientId, isDeleted: false }
-            }),
-            prisma.document.findMany({
-                where: { clientId, isDeleted: false }
-            })
-        ]);
+        const [client, folders, files] = await clientRepository.findClientDataById(clientId);
 
         if (!client) {
             return res.status(404).json({ error: 'Client not found' });
         }
 
-        // Map folders to include isDeletable/isEditable flags based on DB field
-        const formattedFolders = [...folders].sort(compareFoldersByFiscalSequence).map(f => ({
-            ...f,
-            _id: f.id,
-            isDeletable: !f.isPredefined,
-            isEditable: !f.isPredefined
-        }));
-
-        // Helper to build hierarchy
-        const buildTree = (parentId = null) => {
-            return formattedFolders
-                .filter(f => f.parentFolderId === parentId)
-                .sort(compareFoldersByFiscalSequence)
-                .map(f => ({
-                    ...f,
-                    subFolders: buildTree(f.id),
-                    files: files.filter(file => file.folderId === f.id).map(file => ({ ...file, _id: file.id }))
-                }));
-        };
-
-        const hierarchy = buildTree(null);
-        // Include root-level files
-        const rootFiles = files.filter(f => f.folderId === null).map(f => ({ ...f, _id: f.id }));
-
-        const formattedFiles = files.map(f => ({ ...f, _id: f.id }));
-
-        let signedFiles = formattedFiles;
-
-        if (client.caId) {
-            const bucketName = `ca-${client.caId}`;
-
-            signedFiles = formattedFiles.map((file) => {
-                return {
-                    ...file,
-                    fileUrl: file.cloudinaryId ? getFileProxyUrl(req, file.id) : ""
-                };
-            });
-        }
-
-        res.json({
-            status: 'success',
-            client: { ...client, _id: client.id },
-            folders: formattedFolders,
-            files: signedFiles,
-            hierarchy: {
-                rootFolders: hierarchy,
-                rootFiles: rootFiles
-            }
-        });
+        const payload = clientService.buildClientDataResponse(req, client, folders, files);
+        res.json(payload);
     } catch (err) {
-        console.error(err);
+        logger.error(`getClientData Error: ${err.message}`);
         res.status(500).json({ error: 'Server Error' });
     }
 };
@@ -469,29 +266,13 @@ exports.editClient = catchAsync(async (req, res, next) => {
     const { panNumber } = req.body
     const caId = req.user.id
 
-    if (panNumber && !panRegex.test(panNumber)) {
+    if (panNumber && !clientService.isValidPanFormat(panNumber)) {
         return next(new AppError('Invalid PAN number format', 400))
     }
 
-    const { tradeName, tradeNumber, ...rest } = req.body;
-    const finalTradeName = tradeName || tradeNumber;
+    const updateData = clientService.buildClientUpdatePayload(req.body);
 
-    // ✅ Enforce Business Logic: If GST exists, type MUST be BUSINESS
-    const updateData = { ...rest, tradeName: finalTradeName };
-    if (updateData.gstNumber) {
-        updateData.type = 'BUSINESS';
-    } else if (updateData.panNumber || updateData.tanNumber) {
-        updateData.type = 'INDIVIDUAL';
-    }
-
-    const client = await Client.findOneAndUpdate(
-        { id: req.params.id, caId },
-        updateData,
-        {
-            new: true,
-            runValidators: true
-        }
-    )
+    const client = await clientRepository.updateClientByIdAndCa(req.params.id, caId, updateData);
 
     if (!client) {
         return next(new AppError('No client found with that ID associated with your account', 404))
@@ -524,13 +305,7 @@ exports.updateClientStatus = catchAsync(async (req, res, next) => {
     const clientId = req.params.id;
     const { status } = req.body;
 
-    const client = await prisma.client.update({
-        where: {
-            id: clientId,
-            caId: caId
-        },
-        data: { isActive: status }
-    });
+    const client = await clientRepository.updateClientStatus(clientId, caId, status);
 
     if (!client) {
         return next(new AppError('No client found with that ID associated with your account', 404));
@@ -559,7 +334,7 @@ exports.deleteClient = catchAsync(async (req, res, next) => {
     const clientId = req.params.id
 
     // 1. Find Client
-    const client = await Client.findOne({ id: clientId, caId })
+    const client = await clientRepository.findClientByIdAndCa(clientId, caId)
 
     if (!client) {
         return next(new AppError('No client found with that ID associated with your account', 404))
@@ -579,14 +354,13 @@ exports.deleteClient = catchAsync(async (req, res, next) => {
     }
 
     // 3. Delete Documents from DB (Prisma will handle this soon, but for now we'll do it explicitly)
-    const prisma = require('../config/prisma');
-    await prisma.document.deleteMany({ where: { clientId } });
+    await clientRepository.deleteDocumentsByClient(clientId);
 
     // 4. Delete Folders from DB
-    await prisma.folder.deleteMany({ where: { clientId } });
+    await clientRepository.deleteFoldersByClient(clientId);
 
     // 5. Delete Client from DB
-    await Client.deleteOne({ id: clientId });
+    await clientRepository.deleteClientModel(clientId);
 
     await logActivity({
         caId,
@@ -617,7 +391,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
     const ext = path.extname(req.file.originalname).toLowerCase();
 
     // Get last file number for this CA
-    const lastClient = await Client.findOne({ caId }, { sort: { fileNumber: 'desc' } });
+    const lastClient = await clientRepository.findLastClientByCa(caId);
     let currentFileNumber = lastClient && lastClient.fileNumber ? lastClient.fileNumber : 0;
 
     try {
@@ -736,14 +510,11 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
 
             // Check for duplicates in DB
             const panNumbers = uniqueClients.map(c => c.panNumber);
-            const existingClients = await Client.find({
-                caId,
-                panNumber: { in: panNumbers }
-            });
+            const existingClients = await clientRepository.findExistingClientsByPan(caId, panNumbers);
 
             const existingPanSet = new Set(existingClients.map(c => c.panNumber));
 
-            console.log(`[BulkUpload] File count: ${clients.length}, Unique in File: ${uniqueClients.length}, Existing in DB: ${existingClients.length}`);
+            logger.info(`[BulkUpload] File count: ${clients.length}, Unique in File: ${uniqueClients.length}, Existing in DB: ${existingClients.length}`);
 
             // If a record exists in DB, add to errors and filter out
             const finalClientsToCreate = [];
@@ -775,7 +546,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
             for (const clientData of finalClientsToCreate) {
                 try {
                     clientData.uniqueId = await generate8DigitUniqueId('client');
-                    const created = await Client.create(clientData);
+                    const created = await clientRepository.createClient(clientData);
                     createdClients.push(created);
                 } catch (createErr) {
                     logger.error(`Error creating client ${clientData.name}: ${createErr.message}`);
@@ -936,14 +707,11 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         });
 
                         const csvPanNumbers = uniqueClients.map(c => c.panNumber);
-                        const existingClients = await Client.find({
-                            caId,
-                            panNumber: { in: csvPanNumbers }
-                        });
+                        const existingClients = await clientRepository.findExistingClientsByPan(caId, csvPanNumbers);
 
                         const existingPanSet = new Set(existingClients.map(c => c.panNumber));
 
-                        console.log(`[BulkUpload-CSV] File: ${clients.length}, Unique: ${uniqueClients.length}, Existing: ${existingClients.length}`);
+                        logger.info(`[BulkUpload-CSV] File: ${clients.length}, Unique: ${uniqueClients.length}, Existing: ${existingClients.length}`);
 
                         const finalClientsToCreate = [];
                         uniqueClients.forEach(c => {
@@ -974,7 +742,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         for (const clientData of finalClientsToCreate) {
                             try {
                                 clientData.uniqueId = await generate8DigitUniqueId('client');
-                                const created = await Client.create(clientData);
+                                const created = await clientRepository.createClient(clientData);
                                 createdClients.push(created);
                             } catch (createErr) {
                                 logger.error(`Error creating client ${clientData.name}: ${createErr.message}`);
@@ -1043,7 +811,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
 // @access  Private (CA)
 exports.approveDevice = catchAsync(async (req, res, next) => {
     const caId = req.user.id;
-    const client = await Client.findOne({ id: req.params.id, caId });
+    const client = await clientRepository.findClientByIdAndCaForApproval(req.params.id, caId);
 
     if (!client) {
         return next(new AppError('Client not found', 404));
@@ -1058,10 +826,7 @@ exports.approveDevice = catchAsync(async (req, res, next) => {
         updatedAllowedDevices.push(client.deviceId);
     }
 
-    const updatedClient = await Client.findByIdAndUpdate(client.id, {
-        deviceStatus: 'APPROVED',
-        allowedDevices: updatedAllowedDevices
-    });
+    const updatedClient = await clientRepository.updateApprovedDevice(client.id, updatedAllowedDevices);
 
     res.status(200).json({
         status: 'success',
@@ -1076,9 +841,7 @@ exports.selfDelete = catchAsync(async (req, res, next) => {
     const clientId = req.user.id;
 
     // 1. Find the client to get their CA ID (for bucket naming)
-    const client = await prisma.client.findUnique({
-        where: { id: clientId }
-    });
+    const client = await clientRepository.findClientById(clientId);
 
     if (!client) {
         return next(new AppError('Account not found.', 404));
@@ -1095,13 +858,13 @@ exports.selfDelete = catchAsync(async (req, res, next) => {
     }
 
     // 3. Delete Data from DB (Cascade-like)
-    await prisma.document.deleteMany({ where: { clientId } });
-    await prisma.folder.deleteMany({ where: { clientId } });
-    await prisma.notification.deleteMany({ where: { clientId } });
-    await prisma.activityLog.deleteMany({ where: { clientId } });
+    await clientRepository.deleteDocumentsByClient(clientId);
+    await clientRepository.deleteFoldersByClient(clientId);
+    await clientRepository.deleteNotificationsByClient(clientId);
+    await clientRepository.deleteActivityLogsByClient(clientId);
 
     // 4. Delete the Client record
-    await prisma.client.delete({ where: { id: clientId } });
+    await clientRepository.deleteClientById(clientId);
 
     logger.info(`Client self-deleted their account: ${clientId}`);
 

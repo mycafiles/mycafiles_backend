@@ -26,6 +26,10 @@ jobs:
 
             npm install
 
+            # Sync Neon database schema
+            npx prisma generate
+            npx prisma db push --accept-data-loss
+
             pm2 reload mycafiles-api || pm2 start index.js --name mycafiles-api
 
             echo "✅ Backend Done"

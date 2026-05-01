@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const prisma = require('./config/prisma');
 
@@ -84,10 +85,12 @@ app.use(
 );
 
 if (process.env.NODE_ENV === 'development') {
-    app.use(morgan('dev'));
+    app.use(morgan('dev', {
+        stream: { write: (message) => logger.http(message.trim()) }
+    }));
 } else {
     app.use(morgan('combined', {
-        stream: { write: (message) => logger.info(message.trim()) }
+        stream: { write: (message) => logger.http(message.trim()) }
     }));
 }
 
@@ -129,13 +132,13 @@ const PORT = process.env.PORT || 5000;
 async function startServer() {
     try {
         await prisma.$connect();
-        console.log('✅ Connected to PostgreSQL');
+        logger.info('✅ Connected to PostgreSQL');
     } catch (err) {
-        console.error('❌ Database connection error:', err);
+        logger.error(`❌ Database connection error: ${err.message}`);
     }
 
     app.listen(PORT, "0.0.0.0", () => {
-        console.log(`🚀 Server running on port ${PORT}`);
+        logger.info(`🚀 Server running on port ${PORT}`);
     });
 }
 
