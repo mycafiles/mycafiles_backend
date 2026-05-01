@@ -8,6 +8,7 @@ const { uploadFile: storageUpload, deleteFile: storageDelete, getFileUrl, getObj
 const { getFinancialYears } = require('../services/folderService');
 const archiver = require('archiver');
 const { getFileProxyUrl } = require('../utils/urlHelper');
+const { resolveContentType } = require('../utils/contentTypeHelper');
 
 const prisma = require('../config/prisma');
 const isCustomerUser = (user) => String(user?.role || '').toUpperCase() === 'CUSTOMER';
@@ -927,7 +928,7 @@ exports.downloadFile = async (req, res) => {
 
         // Set Headers for Download
         res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
-        res.setHeader('Content-Type', file.fileType || 'application/octet-stream');
+        res.setHeader('Content-Type', resolveContentType(file.fileType, file.fileName));
 
         dataStream.pipe(res);
 
@@ -997,8 +998,8 @@ exports.viewFile = async (req, res) => {
         const dataStream = await getObjectStream(bucketName, fileKey);
 
         res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
-        res.setHeader('Content-Type', file.fileType || 'application/octet-stream');
-        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        res.setHeader('Content-Type', resolveContentType(file.fileType, file.fileName));
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
         dataStream.pipe(res);
 

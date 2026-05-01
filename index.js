@@ -13,44 +13,75 @@ const app = express();
 // Enable trust proxy to correctly detect HTTPS behind a reverse proxy
 app.set('trust proxy', 1);
 
-// Middleware
-app.use(cors({
-    origin: [
-        'https://mycafiles.com',
-        'https://www.mycafiles.com',
-        'https://client.mycafiles.com',
-        'http://localhost:3001', // ✅ FIX
-        'http://localhost:3000'
-    ],
-    credentials: true
-}));
+/** Dedupe CSP frame-ancestor origins (order preserved). */
+function uniqueOrigins(origins) {
+    const seen = new Set();
+    return origins.filter((o) => {
+        if (!o || seen.has(o)) return false;
+        seen.add(o);
+        return true;
+    });
+}
 
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-            "frame-ancestors": [
-                "'self'",
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://localhost:3002",
-                "http://localhost:5173",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:3001",
-                "http://127.0.0.1:3002",
-                "http://127.0.0.1:5173",
-                "https://mycafiles.com",
-                "https://www.mycafiles.com",
-                "https://client.mycafiles.com",
-                "https://mycafiles-client.vercel.app",
-                "https://mycafiles-next.vercel.app" // ✅ ADD THIS
-            ]
+/** Extra iframe parent origins via env — comma-separated, e.g. https://staging.example.com */
+const frameAncestorsFromEnv = (process.env.FRAME_ANCESTOR_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+const defaultFrameAncestors = [
+    "'self'",
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
+    'http://127.0.0.1:5173',
+    'https://mycafiles.com',
+    'https://www.mycafiles.com',
+    'https://client.mycafiles.com',
+    'https://mycafiles-client.vercel.app',
+    'https://mycafiles-next.vercel.app'
+];
+
+const frameAncestorsDirective = uniqueOrigins([
+    ...defaultFrameAncestors,
+    ...frameAncestorsFromEnv
+]);
+
+const corsOriginList = uniqueOrigins([
+    'https://mycafiles.com',
+    'https://www.mycafiles.com',
+    'https://client.mycafiles.com',
+    'http://localhost:3001',
+    'http://localhost:3000',
+    ...frameAncestorsFromEnv.filter((o) => /^https?:\/\//i.test(o))
+]);
+
+// Middleware
+app.use(
+    cors({
+        origin: corsOriginList.length ? corsOriginList : true,
+        credentials: true
+    })
+);
+
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+                'frame-ancestors': frameAncestorsDirective
+            }
         },
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    frameguard: false // Disable X-Frame-Options to allow framing from the allowed origins
-}));
+        crossOriginEmbedderPolicy: false,
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+        // Disable default X-Frame-Options so only CSP frame-ancestors applies
+        frameguard: false
+    })
+));
 
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
