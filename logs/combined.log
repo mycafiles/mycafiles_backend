@@ -7269,3 +7269,83 @@
 {"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 2847.544 ms - -\u001b[0m","timestamp":"2026-05-02 18:42:45:4245"}
 {"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:42:45:4245"}
 {"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 878.278 ms - -\u001b[0m","timestamp":"2026-05-02 18:42:45:4245"}
+{"level":"info","message":"Firebase Admin initialized successfully.","timestamp":"2026-05-02 18:44:54:4454"}
+{"level":"info","message":"✅ Connected to PostgreSQL","timestamp":"2026-05-02 18:44:56:4456"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2026-05-02 18:44:56:4456"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:03:453"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 2466.300 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:06:456"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:06:456"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[0m-\u001b[0m - ms - -\u001b[0m","timestamp":"2026-05-02 18:45:06:456"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:06:456"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:06:456"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:06:456"}
+{"level":"debug","message":"financialYears: [\"FY - 2024-2025\",\"FY - 2025-2026\",\"FY - 2026-2027\"]","timestamp":"2026-05-02 18:45:07:457"}
+{"level":"http","message":"\u001b[0mGET /api/drive/financial-years \u001b[36m304\u001b[0m 228.845 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:07:457"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:07:457"}
+{"level":"debug","message":"financialYears: [\"FY - 2024-2025\",\"FY - 2025-2026\",\"FY - 2026-2027\"]","timestamp":"2026-05-02 18:45:07:457"}
+{"level":"http","message":"\u001b[0mGET /api/drive/financial-years \u001b[36m304\u001b[0m 224.926 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:07:457"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[32m200\u001b[0m 2209.245 ms - 58\u001b[0m","timestamp":"2026-05-02 18:45:08:458"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:08:458"}
+{"level":"http","message":"\u001b[0mGET /api/client/allclients \u001b[36m304\u001b[0m 2434.622 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:09:459"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:09:459"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 665.773 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:09:459"}
+{"level":"http","message":"\u001b[0mGET /api/client/allclients \u001b[36m304\u001b[0m 665.494 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:09:459"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:10:4510"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 656.599 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:10:4510"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:45:12:4512"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:45:12:4512"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:45:12:4512"}
+{"level":"http","message":"\u001b[0mGET /api/auth/me \u001b[36m304\u001b[0m 938.953 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:13:4513"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:45:13:4513"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1317.200 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:13:4513"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:45:13:4513"}
+{"level":"http","message":"\u001b[0mGET /api/auth/me \u001b[36m304\u001b[0m 461.819 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:14:4514"}
+{"level":"http","message":"\u001b[0mGET /api/drive/get-client-drive \u001b[36m304\u001b[0m 2422.529 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:15:4515"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:45:15:4515"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1126.455 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:15:4515"}
+{"level":"http","message":"\u001b[0mGET /api/drive/get-client-drive \u001b[36m304\u001b[0m 2289.159 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:17:4517"}
+{"level":"info","message":"Firebase Admin initialized successfully.","timestamp":"2026-05-02 18:45:30:4530"}
+{"level":"info","message":"✅ Connected to PostgreSQL","timestamp":"2026-05-02 18:45:33:4533"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2026-05-02 18:45:33:4533"}
+{"level":"info","message":"Firebase Admin initialized successfully.","timestamp":"2026-05-02 18:45:36:4536"}
+{"level":"info","message":"✅ Connected to PostgreSQL","timestamp":"2026-05-02 18:45:38:4538"}
+{"level":"info","message":"🚀 Server running on port 5001","timestamp":"2026-05-02 18:45:38:4538"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:45:39:4539"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 3295.297 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:42:4542"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:45:42:4542"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1366.817 ms - -\u001b[0m","timestamp":"2026-05-02 18:45:44:4544"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:06:466"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1157.861 ms - -\u001b[0m","timestamp":"2026-05-02 18:46:08:468"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:46:12:4612"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 4687.496 ms - -\u001b[0m","timestamp":"2026-05-02 18:46:17:4617"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:19:4619"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:19:4619"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:19:4619"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 2483.668 ms - -\u001b[0m","timestamp":"2026-05-02 18:46:22:4622"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:22:4622"}
+{"level":"http","message":"\u001b[0mGET /api/drive/financial-years \u001b[31m500\u001b[0m 5012.278 ms - 1833\u001b[0m","timestamp":"2026-05-02 18:46:24:4624"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:24:4624"}
+{"level":"http","message":"\u001b[0mGET /api/client/allclients \u001b[31m500\u001b[0m 6093.195 ms - 1762\u001b[0m","timestamp":"2026-05-02 18:46:25:4625"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:25:4625"}
+{"level":"debug","message":"financialYears: [\"FY - 2024-2025\",\"FY - 2025-2026\",\"FY - 2026-2027\"]","timestamp":"2026-05-02 18:46:28:4628"}
+{"level":"http","message":"\u001b[0mGET /api/drive/financial-years \u001b[32m200\u001b[0m 3787.042 ms - 90\u001b[0m","timestamp":"2026-05-02 18:46:28:4628"}
+{"level":"http","message":"\u001b[0mGET /api/client/allclients \u001b[31m500\u001b[0m 5015.002 ms - 1833\u001b[0m","timestamp":"2026-05-02 18:46:30:4630"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 10384.557 ms - -\u001b[0m","timestamp":"2026-05-02 18:46:32:4632"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:46:42:4642"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1417.297 ms - -\u001b[0m","timestamp":"2026-05-02 18:46:44:4644"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:46:49:4649"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 855.212 ms - -\u001b[0m","timestamp":"2026-05-02 18:46:50:4650"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:47:13:4713"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1195.779 ms - -\u001b[0m","timestamp":"2026-05-02 18:47:14:4714"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:47:19:4719"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 460.321 ms - -\u001b[0m","timestamp":"2026-05-02 18:47:20:4720"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:47:42:4742"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1180.465 ms - -\u001b[0m","timestamp":"2026-05-02 18:47:44:4744"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:47:49:4749"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 516.360 ms - -\u001b[0m","timestamp":"2026-05-02 18:47:50:4750"}
+{"exp":1780319411,"iat":1777727411,"id":"cmoocitq90001xumstpblwfgz","level":"debug","message":"Decoded Token:","role":"CUSTOMER","timestamp":"2026-05-02 18:48:13:4813"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 1434.604 ms - -\u001b[0m","timestamp":"2026-05-02 18:48:14:4814"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:48:19:4819"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 679.738 ms - -\u001b[0m","timestamp":"2026-05-02 18:48:20:4820"}
+{"exp":1780317936,"iat":1777725936,"id":"cmooc4ev60000dt8fb89y2ebz","level":"debug","message":"Decoded Token:","role":"CAADMIN","timestamp":"2026-05-02 18:48:49:4849"}
+{"level":"http","message":"\u001b[0mGET /api/notifications \u001b[36m304\u001b[0m 912.059 ms - -\u001b[0m","timestamp":"2026-05-02 18:48:50:4850"}

@@ -45,6 +45,7 @@ exports.createClient = catchAsync(async (req, res, next) => {
 
     let client;
     try {
+        const isGstPresent = gstNumber && gstNumber.trim() !== "" && gstNumber.trim() !== "-";
         client = await clientRepository.createClient({
             caId,
             name,
@@ -53,7 +54,7 @@ exports.createClient = catchAsync(async (req, res, next) => {
             email,
             dob: dob ? new Date(dob) : null,
             address,
-            type: gstNumber ? 'BUSINESS' : 'INDIVIDUAL',
+            type: isGstPresent ? 'BUSINESS' : 'INDIVIDUAL',
             tradeName,
             gstNumber,
             tanNumber,
@@ -488,7 +489,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     dob: dob ? new Date(dob) : null,
                     groupName: result_groupName,
                     fileNumber: currentFileNumber,
-                    type: (gstNumber && gstNumber.trim() !== "") ? 'BUSINESS' : 'INDIVIDUAL',
+                    type: (gstNumber && gstNumber.trim() !== "" && gstNumber.trim() !== "-") ? 'BUSINESS' : 'INDIVIDUAL',
                     customFields: [],
                     rowNumber: index + 2
                 });

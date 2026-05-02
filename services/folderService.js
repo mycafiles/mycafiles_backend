@@ -72,7 +72,8 @@ exports.generateClientFolders = async (clientId, clientData) => {
     // LOGIC UPDATE: 'BUSINESS' clients get GST folders, 'INDIVIDUAL' do not.
     // TAN logic remains based on tanNumber existence for now (or could be implied).
     const isBusiness = clientData.type === 'BUSINESS';
-    const hasGST = isBusiness; // Business clients get GST folder regardless of number? Or if they have number? User said "Business Client Should have default GST folder"
+    const hasGST = isBusiness && clientData.type !== 'INDIVIDUAL'; 
+    console.log(`[FolderService] Client Type: ${clientData.type}, hasGST: ${hasGST}, hasTAN: ${!!clientData.tanNumber}`);
     // "Individual client have itr only".
 
     // Explicitly using type as requested
