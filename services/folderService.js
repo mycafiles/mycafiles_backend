@@ -5,11 +5,11 @@ const { logActivity } = require('../services/activityService');
 
 // 1. CONSTANTS
 const MONTHS = [
-    '1-APRIL', '2-MAY', '3-JUNE', '4-JULY', '5-AUGUST', '6-SEPTEMBER',
-    '7-OCTOBER', '8-NOVEMBER', '9-DECEMBER', '10-JANUARY', '11-FEBRUARY', '12-MARCH'
+    'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER',
+    'OCTOBER', 'NOVEMBER', 'DECEMBER', 'JANUARY', 'FEBRUARY', 'MARCH'
 ];
 
-const QUARTERS = ['Q1 - APR-JUN', 'Q2 - JUL-SEP', 'Q3 - OCT-DEC', 'Q4 - JAN-MAR'];
+const QUARTERS = ['APRIL-JUNE', 'JULY-SEPTEMBER', 'OCTOBER-DECEMBER', 'JANUARY-MARCH'];
 
 const getCurrentFYIndex = () => {
     const now = new Date();
@@ -136,10 +136,12 @@ exports.generateClientFolders = async (clientId, clientData) => {
                 const currentFYRootName = `FY - ${systemStartYear}-${systemStartYear + 1}`;
 
                 if (year === currentFYRootName) {
-                    // Current Year: Create folders from April up to current month
-                    const currentFYIndex = getCurrentFYIndex();
+                    // ✅ Create months from April → Current Month
+                    const currentFYIndex = getCurrentFYIndex(); // 0 = April
+
                     for (let i = 0; i <= currentFYIndex; i++) {
                         const month = MONTHS[i];
+
                         const monthFolder = await createFolderRecursive(month, clientId, 'GST', gstFolder.id, gstPath);
                         const monthPath = [...gstPath, { id: monthFolder.id, name: monthFolder.name }];
 
@@ -164,16 +166,16 @@ exports.generateClientFolders = async (clientId, clientData) => {
                 const tdsPath = [...yearRootPath, { id: tdsFolder.id, name: tdsFolder.name }];
 
                 const quarterMonths = {
-                    'Q1 - APR-JUN': ['April', 'May', 'June'],
-                    'Q2 - JUL-SEP': ['July', 'August', 'September'],
-                    'Q3 - OCT-DEC': ['October', 'November', 'December'],
-                    'Q4 - JAN-MAR': ['January', 'February', 'March']
+                    'APRIL - JUNE': ['April', 'May', 'June'],
+                    'JULY - SEPTEMBER': ['July', 'August', 'September'],
+                    'OCTOBER - DECEMBER': ['October', 'November', 'December'],
+                    'JANUARY - MARCH': ['January', 'February', 'March']
                 };
 
                 for (const quarter of Object.keys(quarterMonths)) {
                     const quarterFolder = await createFolderRecursive(quarter, clientId, 'TDS', tdsFolder.id, tdsPath);
                     const quarterPath = [...tdsPath, { id: quarterFolder.id, name: quarterFolder.name }];
-                    
+
                     for (const month of quarterMonths[quarter]) {
                         await createFolderRecursive(month, clientId, 'TDS', quarterFolder.id, quarterPath);
                     }
@@ -213,7 +215,7 @@ exports.generateNextMonthGSTFolders = async () => {
 
             let startYearStr = currentYear.match(/FY - (\d{4})/)?.[1];
             if (!startYearStr) continue;
-            
+
             // Actually, we need to find the root folder for the CURRENT date's FY.
             const now = new Date();
             const year = now.getFullYear();
@@ -234,7 +236,7 @@ exports.generateNextMonthGSTFolders = async () => {
             if (!gstFolder) continue;
 
             const gstPath = [...yearRoot.path, { id: yearRoot.id, name: yearRoot.name }, { id: gstFolder.id, name: gstFolder.name }];
-            
+
             const monthFolder = await createFolderRecursive(nextMonthName, client.id, 'GST', gstFolder.id, gstPath);
             const monthPath = [...gstPath, { id: monthFolder.id, name: monthFolder.name }];
 
