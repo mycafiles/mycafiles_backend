@@ -99,12 +99,18 @@ function deleteClientModel(clientId) {
     return Client.deleteOne({ id: clientId });
 }
 
-function findExistingClientsByPan(caId, panNumbers) {
+function findExistingClientsByPan(panNumbers) {
     return Client.find({
-        caId,
         panNumber: { in: panNumbers }
     });
 }
+
+function findExistingClientsByGst(gstNumbers) {
+    return Client.find({
+        gstNumber: { in: gstNumbers }
+    });
+}
+
 
 function findClientByIdAndCaForApproval(clientId, caId) {
     return Client.findOne({ id: clientId, caId });
@@ -137,6 +143,7 @@ module.exports = {
     deleteClientById,
     deleteClientModel,
     findExistingClientsByPan,
+    findExistingClientsByGst,
     findClientByIdAndCaForApproval,
     updateApprovedDevice
 };

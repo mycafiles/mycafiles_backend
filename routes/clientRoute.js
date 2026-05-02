@@ -15,7 +15,8 @@ const {
     getKYCClients,
     getClientsByGroupName,
     updateClientStatus,
-    selfDelete
+    selfDelete,
+    checkPanExists
 } = require('../controller/clientController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -37,7 +38,9 @@ const upload = multer({
 // protect all routes
 router.use(protect);
 
+router.get('/check-pan/:panNumber', checkPanExists);
 router.post('/create', createClient);
+
 router.get('/allclients', viewClients);
 router.get('/get-gst-clients', getGSTClients);
 router.get('/get-itr-clients', getITRClients);

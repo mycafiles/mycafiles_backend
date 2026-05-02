@@ -493,6 +493,7 @@ exports.firebaseMobileLogin = async (req, res) => {
 
         res.json({
             _id: client.id,
+            uniqueId: client.uniqueId,
             name: client.name,
             email: client.email,
             mobileNumber: client.mobileNumber,
@@ -608,25 +609,7 @@ exports.googleCallback = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
     try {
-        const user = await prisma.user.findUnique({
-            where: { id: req.user.id },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                phone: true,
-                FRNno: true,
-                uniqueId: true,
-                status: true
-            }
-        });
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        res.json(user);
+        res.json(req.user);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

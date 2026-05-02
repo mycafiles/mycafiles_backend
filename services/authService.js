@@ -4,6 +4,7 @@ const authRepository = require('../repositories/authRepository');
 function toClientAuthPayload(client, token) {
     return {
         _id: client.id,
+        uniqueId: client.uniqueId,
         name: client.name,
         email: client.email,
         mobileNumber: client.mobileNumber,
@@ -19,6 +20,7 @@ function toClientAuthPayload(client, token) {
         token
     };
 }
+
 
 async function loginCA(email, password, role) {
     const user = await authRepository.findPrismaUserByEmail(email);
@@ -73,6 +75,7 @@ async function updateCaProfile(userId, body, tokenFactory) {
     });
     return {
         _id: updatedUser.id,
+        uniqueId: updatedUser.uniqueId,
         name: updatedUser.name,
         email: updatedUser.email,
         role: updatedUser.role,
@@ -81,6 +84,7 @@ async function updateCaProfile(userId, body, tokenFactory) {
         token: tokenFactory(updatedUser.id, updatedUser.role)
     };
 }
+
 
 async function updateClientSelfProfile(clientId, body, tokenFactory) {
     const client = await authRepository.findClientById(clientId);
@@ -122,9 +126,10 @@ async function getGroupMembers(clientId) {
         id: { not: currentClient.id },
         isActive: true
     }, {
-        select: { id: true, name: true, type: true, fileNumber: true }
+        select: { id: true, name: true, type: true, fileNumber: true, uniqueId: true }
     });
 }
+
 
 async function switchGroupClient(clientId, targetClientId, tokenFactory) {
     const currentClient = await authRepository.findClientFirst({ id: clientId });
@@ -142,6 +147,7 @@ async function switchGroupClient(clientId, targetClientId, tokenFactory) {
         ok: true,
         payload: {
             _id: targetClient.id,
+            uniqueId: targetClient.uniqueId,
             name: targetClient.name,
             role: 'CUSTOMER',
             type: targetClient.type,
@@ -149,6 +155,7 @@ async function switchGroupClient(clientId, targetClientId, tokenFactory) {
         }
     };
 }
+
 
 async function checkClientExists(mobileNumber) {
     const client = await authRepository.findClientFirst({ mobileNumber });

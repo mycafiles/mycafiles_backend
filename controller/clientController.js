@@ -79,8 +79,8 @@ exports.createClient = catchAsync(async (req, res, next) => {
 
     await createFolder(bucketName, `client_${client.id}`);
 
-    // Pass created client data (including gst/tan) to folder generator
-    await generateClientFolders(client.id, client);
+    // Background: Create Folder structure for Client (GST, TDS, ITR, etc.)
+    generateClientFolders(client.id, client).catch(err => logger.error(`Background folder generation error for client ${client.id}: ${err.message}`));
 
     await logActivity({
         caId,
@@ -111,6 +111,23 @@ exports.viewClients = catchAsync(async (req, res, next) => {
         data: formattedClients
     });
 });
+
+exports.checkPanExists = catchAsync(async (req, res, next) => {
+    const { panNumber } = req.params;
+
+    if (!panNumber) {
+        return next(new AppError('PAN Number is required', 400));
+    }
+
+    const existingClient = await clientRepository.findClientByPan(panNumber.toUpperCase());
+
+    res.status(200).json({
+        status: 'success',
+        exists: !!existingClient,
+        clientName: existingClient ? existingClient.name : null
+    });
+});
+
 
 // @desc    Get All GST Clients for a CA
 // @route   GET /api/client/gst
@@ -279,8 +296,9 @@ exports.editClient = catchAsync(async (req, res, next) => {
     }
 
     // Trigger folder generation check (idempotent, so only identifies missing folders)
-    const { generateClientFolders } = require('../services/folderService');
-    await generateClientFolders(client.id, client);
+    const { generateClientFolders: generateFoldersBackground } = require('../services/folderService');
+    generateFoldersBackground(client.id, client).catch(err => logger.error(`Background folder update error for client ${client.id}: ${err.message}`));
+
 
     await logActivity({
         caId,
@@ -472,8 +490,7 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     fileNumber: currentFileNumber,
                     type: (gstNumber && gstNumber.trim() !== "") ? 'BUSINESS' : 'INDIVIDUAL',
                     customFields: [],
-                    // ❌ REMOVE THIS
-                    // rowNumber: index + 2
+                    rowNumber: index + 2
                 });
             });
 
@@ -510,11 +527,17 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
 
             // Check for duplicates in DB
             const panNumbers = uniqueClients.map(c => c.panNumber);
-            const existingClients = await clientRepository.findExistingClientsByPan(caId, panNumbers);
+            const gstNumbers = uniqueClients.map(c => c.gstNumber).filter(g => g && g.trim() !== "");
 
-            const existingPanSet = new Set(existingClients.map(c => c.panNumber));
+            const [existingClientsPan, existingClientsGst] = await Promise.all([
+                clientRepository.findExistingClientsByPan(panNumbers),
+                gstNumbers.length > 0 ? clientRepository.findExistingClientsByGst(gstNumbers) : Promise.resolve([])
+            ]);
 
-            logger.info(`[BulkUpload] File count: ${clients.length}, Unique in File: ${uniqueClients.length}, Existing in DB: ${existingClients.length}`);
+            const existingPanSet = new Set(existingClientsPan.map(c => c.panNumber));
+            const existingGstSet = new Set(existingClientsGst.map(c => c.gstNumber));
+
+            logger.info(`[BulkUpload] File count: ${clients.length}, Unique in File: ${uniqueClients.length}, Existing Pan in DB: ${existingClientsPan.length}, Existing Gst in DB: ${existingClientsGst.length}`);
 
             // If a record exists in DB, add to errors and filter out
             const finalClientsToCreate = [];
@@ -525,6 +548,15 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         error: 'Client with this PAN already exists in database',
                         clientName: c.name,
                         panNumber: c.panNumber,
+                        mobileNumber: c.mobileNumber
+                    });
+                } else if (c.gstNumber && existingGstSet.has(c.gstNumber)) {
+                    errors.push({
+                        row: c.rowNumber,
+                        error: 'Client with this GST Number already exists in database',
+                        clientName: c.name,
+                        panNumber: c.panNumber,
+                        gstNumber: c.gstNumber,
                         mobileNumber: c.mobileNumber
                     });
                 } else {
@@ -549,18 +581,37 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     const created = await clientRepository.createClient(clientData);
                     createdClients.push(created);
                 } catch (createErr) {
-                    logger.error(`Error creating client ${clientData.name}: ${createErr.message}`);
-
-                    // ✅ HANDLE DUPLICATE PAN ERROR CLEANLY
-                    if (createErr.code === 'P2002' && createErr.meta?.target?.includes('panNumber')) {
-                        errors.push({
-                            row: clientData.rowNumber || 'N/A',
-                            error: 'This PAN is already registered under another CA',
-                            clientName: clientData.name,
-                            panNumber: clientData.panNumber,
-                            mobileNumber: clientData.mobileNumber
-                        });
+                    // ✅ HANDLE DUPLICATE PAN/GST ERROR CLEANLY
+                    if (createErr.code === 'P2002') {
+                        const target = createErr.meta?.target || [];
+                        if (target.includes('panNumber')) {
+                            errors.push({
+                                row: clientData.rowNumber || 'N/A',
+                                error: 'This PAN is already registered in the system',
+                                clientName: clientData.name,
+                                panNumber: clientData.panNumber,
+                                mobileNumber: clientData.mobileNumber
+                            });
+                        } else if (target.includes('gstNumber')) {
+                            errors.push({
+                                row: clientData.rowNumber || 'N/A',
+                                error: 'This GST Number is already registered in the system',
+                                clientName: clientData.name,
+                                panNumber: clientData.panNumber,
+                                gstNumber: clientData.gstNumber,
+                                mobileNumber: clientData.mobileNumber
+                            });
+                        } else {
+                            errors.push({
+                                row: clientData.rowNumber || 'N/A',
+                                error: `Database Constraint Error: ${target.join(', ')}`,
+                                clientName: clientData.name,
+                                panNumber: clientData.panNumber,
+                                mobileNumber: clientData.mobileNumber
+                            });
+                        }
                     } else {
+                        logger.error(`Error creating client ${clientData.name}: ${createErr.message}`);
                         errors.push({
                             row: clientData.rowNumber || 'N/A',
                             error: `Database Error: ${createErr.message}`,
@@ -578,12 +629,15 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                 details: `Bulk uploaded ${createdClients.length} clients successfully`,
             });
 
-            // Generate Folders (Batched to prevent overload)
+            // Generate Folders in Background (Batched to prevent overload)
             const batchSize = 50;
             for (let i = 0; i < createdClients.length; i += batchSize) {
                 const batch = createdClients.slice(i, i + batchSize);
-                await Promise.all(batch.map(client => generateClientFolders(client.id, client)));
+                // Do not await - allow to run in background
+                Promise.all(batch.map(client => generateClientFolders(client.id, client)))
+                    .catch(err => logger.error(`Bulk background folder generation error: ${err.message}`));
             }
+
 
             return res.status(201).json({
                 status: 'success',
@@ -707,20 +761,35 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                         });
 
                         const csvPanNumbers = uniqueClients.map(c => c.panNumber);
-                        const existingClients = await clientRepository.findExistingClientsByPan(caId, csvPanNumbers);
+                        const csvGstNumbers = uniqueClients.map(c => c.gstNumber).filter(g => g && g.trim() !== "");
 
-                        const existingPanSet = new Set(existingClients.map(c => c.panNumber));
+                        const [existingClientsPan, existingClientsGst] = await Promise.all([
+                            clientRepository.findExistingClientsByPan(csvPanNumbers),
+                            csvGstNumbers.length > 0 ? clientRepository.findExistingClientsByGst(csvGstNumbers) : Promise.resolve([])
+                        ]);
 
-                        logger.info(`[BulkUpload-CSV] File: ${clients.length}, Unique: ${uniqueClients.length}, Existing: ${existingClients.length}`);
+                        const existingPanSet = new Set(existingClientsPan.map(c => c.panNumber));
+                        const existingGstSet = new Set(existingClientsGst.map(c => c.gstNumber));
+
+                        logger.info(`[BulkUpload-CSV] File: ${clients.length}, Unique: ${uniqueClients.length}, Existing Pan: ${existingClientsPan.length}, Existing Gst: ${existingClientsGst.length}`);
 
                         const finalClientsToCreate = [];
                         uniqueClients.forEach(c => {
                             if (existingPanSet.has(c.panNumber)) {
                                 errors.push({
                                     row: c.rowNumber,
-                                    error: 'Client with this PAN already exists in your database',
+                                    error: 'Client with this PAN already exists in database',
                                     clientName: c.name,
                                     panNumber: c.panNumber,
+                                    mobileNumber: c.mobileNumber
+                                });
+                            } else if (c.gstNumber && existingGstSet.has(c.gstNumber)) {
+                                errors.push({
+                                    row: c.rowNumber,
+                                    error: 'Client with this GST Number already exists in database',
+                                    clientName: c.name,
+                                    panNumber: c.panNumber,
+                                    gstNumber: c.gstNumber,
                                     mobileNumber: c.mobileNumber
                                 });
                             } else {
@@ -745,18 +814,37 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                                 const created = await clientRepository.createClient(clientData);
                                 createdClients.push(created);
                             } catch (createErr) {
-                                logger.error(`Error creating client ${clientData.name}: ${createErr.message}`);
-
-                                // ✅ HANDLE DUPLICATE PAN ERROR CLEANLY
-                                if (createErr.code === 'P2002' && createErr.meta?.target?.includes('panNumber')) {
-                                    errors.push({
-                                        row: clientData.rowNumber || 'N/A',
-                                        error: 'This PAN is already registered under another CA',
-                                        clientName: clientData.name,
-                                        panNumber: clientData.panNumber,
-                                        mobileNumber: clientData.mobileNumber
-                                    });
+                                // ✅ HANDLE DUPLICATE PAN/GST ERROR CLEANLY
+                                if (createErr.code === 'P2002') {
+                                    const target = createErr.meta?.target || [];
+                                    if (target.includes('panNumber')) {
+                                        errors.push({
+                                            row: clientData.rowNumber || 'N/A',
+                                            error: 'This PAN is already registered in the system',
+                                            clientName: clientData.name,
+                                            panNumber: clientData.panNumber,
+                                            mobileNumber: clientData.mobileNumber
+                                        });
+                                    } else if (target.includes('gstNumber')) {
+                                        errors.push({
+                                            row: clientData.rowNumber || 'N/A',
+                                            error: 'This GST Number is already registered in the system',
+                                            clientName: clientData.name,
+                                            panNumber: clientData.panNumber,
+                                            gstNumber: clientData.gstNumber,
+                                            mobileNumber: clientData.mobileNumber
+                                        });
+                                    } else {
+                                        errors.push({
+                                            row: clientData.rowNumber || 'N/A',
+                                            error: `Database Constraint Error: ${target.join(', ')}`,
+                                            clientName: clientData.name,
+                                            panNumber: clientData.panNumber,
+                                            mobileNumber: clientData.mobileNumber
+                                        });
+                                    }
                                 } else {
+                                    logger.error(`Error creating client ${clientData.name}: ${createErr.message}`);
                                     errors.push({
                                         row: clientData.rowNumber || 'N/A',
                                         error: `Database Error: ${createErr.message}`,
@@ -768,12 +856,15 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                             }
                         }
 
-                        // Generate Folders (Batched to prevent overload)
+                        // Generate Folders in Background (Batched to prevent overload)
                         const batchSize = 50;
                         for (let i = 0; i < createdClients.length; i += batchSize) {
                             const batch = createdClients.slice(i, i + batchSize);
-                            await Promise.all(batch.map(client => generateClientFolders(client.id, client)));
+                            // Do not await - allow to run in background
+                            Promise.all(batch.map(client => generateClientFolders(client.id, client)))
+                                .catch(err => logger.error(`Bulk background folder generation error (CSV): ${err.message}`));
                         }
+
 
                         logger.info(`Bulk upload (CSV): ${createdClients.length} clients created by CA: ${caId}`);
                         res.status(201).json({
