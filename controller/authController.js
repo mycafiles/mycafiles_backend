@@ -604,6 +604,45 @@ exports.googleCallback = async (req, res) => {
     }
 };
 
+// @desc    Update professional identity
+// @route   PUT /api/auth/professional-identity
+// @access  Private
+exports.updateProfessionalIdentity = async (req, res) => {
+    try {
+        const { professionalIdentity, membershipNumber, firmName } = req.body;
+
+        if (!professionalIdentity) {
+            return res.status(400).json({ message: 'Professional identity is required' });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: req.user.id },
+            data: {
+                professionalIdentity,
+                membershipNumber: professionalIdentity === 'CA' ? membershipNumber : null,
+                firmName
+            }
+        });
+
+        res.json({
+            status: 'success',
+            message: 'Professional identity updated successfully',
+            user: {
+                id: updatedUser.id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                professionalIdentity: updatedUser.professionalIdentity,
+                membershipNumber: updatedUser.membershipNumber,
+                firmName: updatedUser.firmName
+            }
+        });
+    } catch (error) {
+        logger.error(`Update Identity Error: ${error.message}`);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Get current user profile
 // @route   GET /api/auth/me
 // @access  Private

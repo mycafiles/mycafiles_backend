@@ -16,6 +16,47 @@ const { getFileProxyUrl } = require('../utils/urlHelper');
 const { generate8DigitUniqueId } = require('../utils/idGenerator');
 const clientRepository = require('../repositories/clientRepository');
 const clientService = require('../services/clientService');
+const sendEmail = require('../services/emailService');
+
+const sendWelcomeEmail = async (client) => {
+    if (!client.email) return;
+
+    const loginUrl = process.env.CLIENT_PANEL_URL || 'https://client.mycafiles.com/login';
+    try {
+        await sendEmail({
+            email: client.email,
+            subject: 'Welcome to MYCAFILES - Registration Successful',
+            html: `
+                <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #f0f0f0; padding: 40px; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #813FE2; margin: 0; font-size: 28px;">Welcome to MYCAFILES!</h1>
+                    </div>
+                    
+                    <p style="font-size: 16px; line-height: 1.6;">Dear <strong>${client.name}</strong>,</p>
+                    <p style="font-size: 16px; line-height: 1.6;">You have been successfully registered on <strong>mycafiles.com</strong> by your Chartered Accountant.</p>
+                    <p style="font-size: 16px; line-height: 1.6;">You can now access your documents, GST/ITR filings, and other services through our secure client panel.</p>
+                    
+                    <div style="background: #f8f5ff; padding: 25px; border-radius: 10px; margin: 30px 0; border: 1px solid #e9dfff;">
+                        <p style="margin: 0; font-size: 15px;"><strong>Access Your Panel:</strong></p>
+                        <p style="margin: 10px 0; font-size: 16px;"><a href="${loginUrl}" style="color: #813FE2; font-weight: bold; text-decoration: none;">${loginUrl}</a></p>
+                        <hr style="border: 0; border-top: 1px solid #e9dfff; margin: 15px 0;">
+                        <p style="margin: 0; font-size: 15px;"><strong>Login Method:</strong> Phone Number & OTP</p>
+                        <p style="margin: 10px 0 0 0; font-size: 15px;"><strong>Your Registered Phone:</strong> ${client.mobileNumber}</p>
+                    </div>
+                    
+                    <p style="font-size: 16px; line-height: 1.6;">Simply visit the link above, enter your registered phone number, and verify with the OTP sent to your mobile device.</p>
+                    
+                    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #888;">
+                        <p>Best Regards,<br><strong style="color: #555;">Team MYCAFILES</strong></p>
+                    </div>
+                </div>
+            `
+        });
+        logger.info(`Welcome email sent successfully to ${client.email}`);
+    } catch (err) {
+        logger.error(`Welcome email failed for client ${client.id}: ${err.message}`);
+    }
+};
 
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
 
@@ -92,6 +133,10 @@ exports.createClient = catchAsync(async (req, res, next) => {
     });
 
     logger.info(`Client created: ${client.id} by CA: ${caId}`)
+
+    // ✅ Send Welcome Email
+    sendWelcomeEmail(client);
+
     res.status(201).json({
         status: 'success',
         data: { ...client, _id: client.id }
@@ -581,6 +626,9 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                     clientData.uniqueId = await generate8DigitUniqueId('client');
                     const created = await clientRepository.createClient(clientData);
                     createdClients.push(created);
+
+                    // ✅ Send Welcome Email (async, no await to speed up bulk)
+                    sendWelcomeEmail(created);
                 } catch (createErr) {
                     // ✅ HANDLE DUPLICATE PAN/GST ERROR CLEANLY
                     if (createErr.code === 'P2002') {
@@ -814,6 +862,9 @@ exports.bulkUploadClients = catchAsync(async (req, res, next) => {
                                 clientData.uniqueId = await generate8DigitUniqueId('client');
                                 const created = await clientRepository.createClient(clientData);
                                 createdClients.push(created);
+
+                                // ✅ Send Welcome Email
+                                sendWelcomeEmail(created);
                             } catch (createErr) {
                                 // ✅ HANDLE DUPLICATE PAN/GST ERROR CLEANLY
                                 if (createErr.code === 'P2002') {
